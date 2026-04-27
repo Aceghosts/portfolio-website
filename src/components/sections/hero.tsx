@@ -106,7 +106,7 @@ export function Hero() {
             animate={{ y: 0 }}
             transition={{ duration: 0.9, delay: 0.42, ease: [0.16, 1, 0.3, 1] }}
             className="font-display leading-[0.88] text-white"
-            style={{ fontSize: "clamp(3.2rem, 7.5vw, 7.5rem)" }}
+            style={{ fontSize: "clamp(2.6rem, 7.5vw, 7.5rem)" }}
           >
             ABBAS
           </motion.h1>
@@ -119,7 +119,7 @@ export function Hero() {
             animate={{ y: 0 }}
             transition={{ duration: 0.9, delay: 0.54, ease: [0.16, 1, 0.3, 1] }}
             className="font-display leading-[0.88] text-brand"
-            style={{ fontSize: "clamp(3.2rem, 7.5vw, 7.5rem)" }}
+            style={{ fontSize: "clamp(2.6rem, 7.5vw, 7.5rem)" }}
           >
             MUSTAFA
           </motion.h1>
