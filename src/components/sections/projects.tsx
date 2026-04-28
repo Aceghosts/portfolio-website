@@ -15,6 +15,7 @@ const projects = [
     thumbnail: "/thumbnail.jpg",
     link: "https://www.behance.net/gallery/230074723/Ai-Porsche-Ad",
     tools: ["ChatGPT", "Kling AI", "Runway", "Minimax", "After Effects"],
+    objectPosition: "center center",
     featured: true,
   },
   {
@@ -24,6 +25,7 @@ const projects = [
     tag: "2025",
     desc: "A personal exploration of luxury product design. Created using Blender and After Effects, this 3D Rolex ad showcases a minimalist approach to lighting and motion, focusing on the weightless elegance of a timeless brand.",
     thumbnail: "/rolex.jpg",
+    objectPosition: "center 20%",
     link: "https://www.behance.net/gallery/222171361/Rolex-Concept-Ad",
     tools: ["Blender", "After Effects"],
     featured: true,
@@ -60,7 +62,8 @@ function FeaturedCard({ project, index }: { project: typeof projects[0]; index: 
             src={project.thumbnail!}
             alt={project.title}
             fill
-            className="object-cover object-center group-hover:scale-105 transition-transform duration-700"
+            className="object-cover group-hover:scale-105 transition-transform duration-700"
+            style={{ objectPosition: project.objectPosition ?? "center center" }}
             sizes="50vw"
           />
           {/* Dark overlay */}
