@@ -17,11 +17,22 @@ const projects = [
     tools: ["ChatGPT", "Kling AI", "Runway", "Minimax", "After Effects"],
     featured: true,
   },
-  { num: "02", title: "Coming Soon", category: "Motion Graphics",        tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
-  { num: "03", title: "Coming Soon", category: "Brand Video",            tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
-  { num: "04", title: "Coming Soon", category: "Video Editing",          tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
-  { num: "05", title: "Coming Soon", category: "Social Media Content",   tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
-  { num: "06", title: "Coming Soon", category: "Scriptwriting",          tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
+  {
+    num: "02",
+    title: "Rolex: Redefined in 3D",
+    category: "3D Design & Motion",
+    tag: "2025",
+    desc: "A personal exploration of luxury product design. Created using Blender and After Effects, this 3D Rolex ad showcases a minimalist approach to lighting and motion, focusing on the weightless elegance of a timeless brand.",
+    thumbnail: "/rolex.jpg",
+    link: "https://www.behance.net/gallery/222171361/Rolex-Concept-Ad",
+    tools: ["Blender", "After Effects"],
+    featured: true,
+  },
+  { num: "03", title: "Coming Soon", category: "Motion Graphics",        tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
+  { num: "04", title: "Coming Soon", category: "Brand Video",            tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
+  { num: "05", title: "Coming Soon", category: "Video Editing",          tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
+  { num: "06", title: "Coming Soon", category: "Social Media Content",   tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
+  { num: "07", title: "Coming Soon", category: "Scriptwriting",          tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
 ];
 
 function FeaturedCard({ project, index }: { project: typeof projects[0]; index: number }) {
