@@ -47,8 +47,9 @@ export function Hero() {
           alt="Abbas Mustafa"
           fill
           priority
+          quality={100}
           className="object-cover object-center"
-          sizes="50vw"
+          sizes="(max-width: 768px) 100vw, 50vw"
         />
         {/* Blend left edge into black */}
         <div
