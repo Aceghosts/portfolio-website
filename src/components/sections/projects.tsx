@@ -2,7 +2,7 @@
 
 import { motion, useInView } from "framer-motion";
 import { useRef, useState } from "react";
-import { Play, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 
 const projects = [
@@ -30,11 +30,6 @@ const projects = [
     tools: ["Blender", "After Effects"],
     featured: true,
   },
-  { num: "03", title: "Coming Soon", category: "Motion Graphics",        tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
-  { num: "04", title: "Coming Soon", category: "Brand Video",            tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
-  { num: "05", title: "Coming Soon", category: "Video Editing",          tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
-  { num: "06", title: "Coming Soon", category: "Social Media Content",   tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
-  { num: "07", title: "Coming Soon", category: "Scriptwriting",          tag: "2025", desc: "", thumbnail: null, link: null, tools: [], featured: false },
 ];
 
 function FeaturedCard({ project, index }: { project: typeof projects[0]; index: number }) {
@@ -132,60 +127,11 @@ function FeaturedCard({ project, index }: { project: typeof projects[0]; index: 
   );
 }
 
-function PlaceholderCard({ project, index }: { project: typeof projects[0]; index: number }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 40 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.7, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="group relative overflow-hidden border border-white/[0.06] hover:border-brand/30 transition-colors duration-500 cursor-default"
-    >
-      <div className="aspect-video relative bg-[#0c0c0c] flex items-center justify-center overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(220,28,28,1) 1px, transparent 1px), linear-gradient(90deg, rgba(220,28,28,1) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-        <div className="relative z-10 flex flex-col items-center gap-3">
-          <motion.div
-            animate={{ scale: hovered ? 1.08 : 1, backgroundColor: hovered ? "rgba(220,28,28,0.12)" : "rgba(220,28,28,0.05)" }}
-            transition={{ duration: 0.3 }}
-            className="w-12 h-12 rounded-full border border-brand/20 flex items-center justify-center"
-          >
-            <Play size={14} className="text-brand/50 ml-0.5" />
-          </motion.div>
-          <span className="font-body text-[10px] tracking-widest uppercase text-white/15">
-            Coming Soon
-          </span>
-        </div>
-      </div>
-      <div className="p-5 flex items-center justify-between">
-        <div>
-          <p className="font-body text-[10px] tracking-widests uppercase text-brand/60 mb-1">{project.category}</p>
-          <p className="font-display text-lg tracking-wider text-white/25">{project.title}</p>
-        </div>
-        <span className="font-body text-xs text-white/15">{project.num}</span>
-      </div>
-    </motion.div>
-  );
-}
-
 export function Projects() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-100px" });
 
   const featured = projects.filter((p) => p.featured);
-  const rest = projects.filter((p) => !p.featured);
 
   return (
     <section id="projects" className="py-32 relative" ref={ref}>
@@ -222,17 +168,10 @@ export function Projects() {
           ))}
         </div>
 
-        {/* Featured project — full width */}
-        <div className="grid grid-cols-1 gap-4 mb-4">
+        {/* Featured projects — full width */}
+        <div className="grid grid-cols-1 gap-4">
           {featured.map((p, i) => (
             <FeaturedCard key={p.num} project={p} index={i} />
-          ))}
-        </div>
-
-        {/* Placeholder grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {rest.map((p, i) => (
-            <PlaceholderCard key={p.num} project={p} index={i + 1} />
           ))}
         </div>
       </div>
