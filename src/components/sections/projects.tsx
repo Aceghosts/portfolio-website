@@ -2,7 +2,7 @@
 
 import { motion, useInView } from "framer-motion";
 import { useRef, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { Play, ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 
 const projects = [
