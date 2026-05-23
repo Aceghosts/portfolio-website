@@ -1,7 +1,29 @@
 "use client";
 
 import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
+
+function CountUp({ target, suffix = "", duration = 2200 }: { target: number; suffix?: string; duration?: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out expo for a cinematic deceleration
+      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      setCount(Math.round(eased * target));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [inView, target, duration]);
+
+  return <span ref={ref}>{count}{suffix}</span>;
+}
 
 export function About() {
   const ref = useRef<HTMLDivElement>(null);
@@ -112,16 +134,16 @@ export function About() {
         >
           <div className="grid grid-cols-3 gap-2 md:gap-6">
             {[
-              { value: "5+",  label: "Years\nExperience" },
-              { value: "20+", label: "Projects\nCompleted" },
-              { value: "15+", label: "Happy\nClients" },
-            ].map(({ value, label }) => (
+              { target: 5,   suffix: "+", label: "Years\nExperience",   duration: 1800 },
+              { target: 200, suffix: "+", label: "Projects\nCompleted", duration: 2400 },
+              { target: 15,  suffix: "+", label: "Happy\nClients",      duration: 2000 },
+            ].map(({ target, suffix, label, duration }) => (
               <div key={label} className="text-center px-2">
                 <p
                   className="font-display tracking-wider text-brand mb-2 leading-none"
                   style={{ fontSize: "clamp(2rem, 6vw, 4rem)" }}
                 >
-                  {value}
+                  <CountUp target={target} suffix={suffix} duration={duration} />
                 </p>
                 <p className="font-body text-[9px] md:text-[10px] tracking-widest uppercase text-white/30 whitespace-pre-line leading-relaxed">
                   {label}
