@@ -66,7 +66,7 @@ export function About() {
             </p>
             <p className="font-body text-white/55 text-sm md:text-base leading-relaxed">
               I focus on turning raw concepts into{" "}
-              <span className="text-white font-semibold">polished, cinematic content</span> that
+              <span className="text-white font-semibold">polished, cinematic content</span>{" "}that
               resonates. If you need someone who understands both the &lsquo;why&rsquo; and the
               &lsquo;how&rsquo; of modern video, I&apos;m your guy.
             </p>
