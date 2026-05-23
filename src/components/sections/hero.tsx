@@ -33,13 +33,13 @@ export function Hero() {
       {/* ── Right side: Abbas photo ── */}
       <motion.div
         style={{ y: imageY }}
-        className="absolute top-0 right-0 w-1/2 h-full pointer-events-none"
+        className="absolute top-0 right-0 w-[55%] h-full pointer-events-none"
       >
         {/* Red glow behind photo */}
         <div
           className="absolute inset-0 z-10"
           style={{
-            background: "radial-gradient(ellipse at 55% 40%, rgba(220,28,28,0.2) 0%, transparent 60%)",
+            background: "radial-gradient(ellipse at 60% 60%, rgba(220,28,28,0.18) 0%, transparent 65%)",
           }}
         />
         <Image
@@ -48,20 +48,25 @@ export function Hero() {
           fill
           priority
           quality={100}
-          className="object-cover object-center"
-          sizes="(max-width: 768px) 100vw, 50vw"
+          className="object-contain object-bottom"
+          sizes="(max-width: 768px) 100vw, 55vw"
         />
         {/* Blend left edge into black */}
         <div
           className="absolute inset-0 z-20"
           style={{
-            background: "linear-gradient(to right, #080808 0%, rgba(8,8,8,0.5) 25%, transparent 55%)",
+            background: "linear-gradient(to right, #080808 0%, rgba(8,8,8,0.6) 20%, transparent 50%)",
           }}
         />
-        {/* Blend bottom */}
+        {/* Blend bottom edge */}
         <div
           className="absolute inset-0 z-20"
-          style={{ background: "linear-gradient(to top, #080808 0%, transparent 35%)" }}
+          style={{ background: "linear-gradient(to top, #080808 0%, transparent 18%)" }}
+        />
+        {/* Blend top edge */}
+        <div
+          className="absolute inset-0 z-20"
+          style={{ background: "linear-gradient(to bottom, #080808 0%, transparent 12%)" }}
         />
       </motion.div>
 
