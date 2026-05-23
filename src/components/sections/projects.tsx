@@ -205,8 +205,8 @@ export function Projects() {
         {/* Heading */}
         <div className="mb-14">
           {[
-            { word: "SELECTED", color: "text-white" },
-            { word: "PROJECTS", color: "text-brand" },
+            { word: "CREATIVE", color: "text-white" },
+            { word: "VAULT",    color: "text-brand" },
           ].map(({ word, color }, i) => (
             <div key={word} style={{ overflow: "hidden" }}>
               <motion.h2
