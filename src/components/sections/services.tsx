@@ -65,21 +65,15 @@ export function Services() {
 
         {/* Full-width heading */}
         <div className="mb-14">
-          {[
-            { word: "WHAT I OFFER", color: "text-white" },
-          ].map(({ word, color }, i) => (
-            <div key={word} style={{ overflow: "hidden" }}>
-              <motion.h2
-                initial={{ y: "100%" }}
-                animate={inView ? { y: 0 } : {}}
-                transition={{ duration: 0.9, delay: 0.1 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className={`font-display leading-[0.9] tracking-wider ${color}`}
-                style={{ fontSize: "clamp(2.8rem, 6.5vw, 6.5rem)" }}
-              >
-                {word}
-              </motion.h2>
-            </div>
-          ))}
+          <motion.h2
+            initial={{ y: 40, opacity: 0 }}
+            animate={inView ? { y: 0, opacity: 1 } : {}}
+            transition={{ duration: 0.9, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="font-display leading-[0.9] tracking-wider text-white"
+            style={{ fontSize: "clamp(2.8rem, 6.5vw, 6.5rem)" }}
+          >
+            WHAT I OFFER
+          </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}

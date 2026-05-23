@@ -106,30 +106,26 @@ export function Hero() {
         </motion.div>
 
         {/* ABBAS */}
-        <div className="overflow-hidden">
-          <motion.h1
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            transition={{ duration: 0.9, delay: 0.42, ease: [0.16, 1, 0.3, 1] }}
-            className="font-display leading-[0.88] text-white"
-            style={{ fontSize: "clamp(2.6rem, 7.5vw, 7.5rem)" }}
-          >
-            ABBAS
-          </motion.h1>
-        </div>
+        <motion.h1
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.9, delay: 0.42, ease: [0.16, 1, 0.3, 1] }}
+          className="font-display leading-[0.88] text-white"
+          style={{ fontSize: "clamp(2.6rem, 7.5vw, 7.5rem)" }}
+        >
+          ABBAS
+        </motion.h1>
 
         {/* MUSTAFA */}
-        <div className="overflow-hidden mb-6">
-          <motion.h1
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            transition={{ duration: 0.9, delay: 0.54, ease: [0.16, 1, 0.3, 1] }}
-            className="font-display leading-[0.88] text-brand"
-            style={{ fontSize: "clamp(2.6rem, 7.5vw, 7.5rem)" }}
-          >
-            MUSTAFA
-          </motion.h1>
-        </div>
+        <motion.h1
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.9, delay: 0.54, ease: [0.16, 1, 0.3, 1] }}
+          className="font-display leading-[0.88] text-brand mb-6"
+          style={{ fontSize: "clamp(2.6rem, 7.5vw, 7.5rem)" }}
+        >
+          MUSTAFA
+        </motion.h1>
 
         {/* Subtitle */}
         <motion.p
