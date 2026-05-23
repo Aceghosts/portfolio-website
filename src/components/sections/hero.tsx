@@ -33,7 +33,7 @@ export function Hero() {
       {/* ── Right side: Abbas photo ── */}
       <motion.div
         style={{ y: imageY }}
-        className="absolute top-0 right-0 w-[55%] h-full pointer-events-none"
+        className="absolute top-20 right-0 w-[55%] h-full pointer-events-none"
       >
         {/* Red glow behind photo */}
         <div
