@@ -28,12 +28,12 @@ export function Hero() {
   const textY = useTransform(scrollYProgress, [0, 1], ["0%", "-6%"]);
 
   return (
-    <section ref={ref} className="relative min-h-screen bg-[#080808] overflow-hidden">
+    <section ref={ref} className="relative min-h-screen bg-[#080808] overflow-hidden flex flex-col md:block">
 
-      {/* ── Right side: Abbas photo ── */}
+      {/* ── Right side: Abbas photo (desktop overlay) ── */}
       <motion.div
         style={{ y: imageY }}
-        className="absolute top-20 right-0 w-[55%] h-full pointer-events-none"
+        className="hidden md:block absolute top-20 right-0 w-[55%] h-full pointer-events-none"
       >
         {/* Red glow behind photo */}
         <div
@@ -90,14 +90,14 @@ export function Hero() {
       {/* ── Left text content ── */}
       <motion.div
         style={{ y: textY, opacity: textOpacity }}
-        className="relative z-30 min-h-screen flex flex-col justify-center px-8 md:px-14 w-full md:w-[52%]"
+        className="relative z-30 md:min-h-screen flex flex-col justify-center px-8 md:px-14 w-full md:w-[52%] pt-32 pb-8 md:py-0"
       >
         {/* Eyebrow */}
         <motion.div
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex items-center gap-3 mb-8 mt-24"
+          className="flex items-center gap-3 mb-8 md:mt-24"
         >
           <span className="w-6 h-px bg-brand" />
           <span className="font-body text-[10px] font-semibold tracking-widest uppercase text-brand">
@@ -168,6 +168,36 @@ export function Hero() {
           </a>
         </motion.div>
       </motion.div>
+
+      {/* ── Abbas photo (mobile, stacked full-width) ── */}
+      <div className="md:hidden relative z-20 w-full h-[58vh] min-h-[420px] mt-auto">
+        {/* Red glow behind photo */}
+        <div
+          className="absolute inset-0 z-10"
+          style={{
+            background: "radial-gradient(ellipse at 50% 60%, rgba(220,28,28,0.18) 0%, transparent 65%)",
+          }}
+        />
+        <Image
+          src="/hero.png"
+          alt="Abbas Mustafa"
+          fill
+          priority
+          quality={100}
+          className="object-contain object-bottom z-10"
+          sizes="100vw"
+        />
+        {/* Blend top edge into black */}
+        <div
+          className="absolute inset-0 z-20"
+          style={{ background: "linear-gradient(to bottom, #080808 0%, transparent 22%)" }}
+        />
+        {/* Blend bottom edge */}
+        <div
+          className="absolute inset-0 z-20"
+          style={{ background: "linear-gradient(to top, #080808 0%, transparent 14%)" }}
+        />
+      </div>
 
       {/* Scan line */}
       <motion.div
