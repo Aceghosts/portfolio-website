@@ -44,7 +44,9 @@ export function Navbar() {
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
           "fixed top-0 inset-x-0 z-50 transition-all duration-500",
-          scrolled ? "bg-[#080808]/90 backdrop-blur-md border-b border-white/5 py-4" : "py-6"
+          scrolled
+            ? "bg-[#080808]/90 backdrop-blur-md border-b border-white/5 py-4"
+            : "py-6 bg-[#080808]/40 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none"
         )}
       >
         <nav className="max-w-7xl mx-auto px-6 md:px-10 grid grid-cols-3 items-center">

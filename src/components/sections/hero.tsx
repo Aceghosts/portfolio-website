@@ -28,7 +28,35 @@ export function Hero() {
   const textY = useTransform(scrollYProgress, [0, 1], ["0%", "-6%"]);
 
   return (
-    <section ref={ref} className="relative min-h-screen bg-[#080808] overflow-hidden flex flex-col md:block">
+    <section ref={ref} className="relative min-h-screen bg-[#080808] overflow-hidden">
+
+      {/* ── Full-bleed photo (mobile only) ── */}
+      <div className="md:hidden absolute inset-0 z-0">
+        <Image
+          src="/hero.png"
+          alt="Abbas Mustafa"
+          fill
+          priority
+          quality={100}
+          className="object-cover object-top"
+          sizes="100vw"
+        />
+        {/* Red glow */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "radial-gradient(ellipse at 55% 40%, rgba(220,28,28,0.16) 0%, transparent 60%)",
+          }}
+        />
+        {/* Dark gradient bottom → top for text legibility */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to top, #080808 0%, rgba(8,8,8,0.88) 22%, rgba(8,8,8,0.45) 50%, rgba(8,8,8,0.15) 78%, rgba(8,8,8,0.35) 100%)",
+          }}
+        />
+      </div>
 
       {/* ── Right side: Abbas photo (desktop overlay) ── */}
       <motion.div
@@ -90,7 +118,7 @@ export function Hero() {
       {/* ── Left text content ── */}
       <motion.div
         style={{ y: textY, opacity: textOpacity }}
-        className="relative z-30 md:min-h-screen flex flex-col md:justify-center px-8 md:px-14 w-full md:w-[52%] pt-24 pb-0 md:py-0"
+        className="relative z-30 min-h-screen flex flex-col justify-end md:justify-center px-8 md:px-14 w-full md:w-[52%] pb-14 md:pb-0"
       >
         {/* Eyebrow */}
         <motion.div
@@ -168,31 +196,6 @@ export function Hero() {
           </a>
         </motion.div>
       </motion.div>
-
-      {/* ── Abbas photo (mobile, stacked) ── */}
-      <div className="md:hidden relative z-20 w-[88%] mx-auto h-[72vh] min-h-[460px] mt-2">
-        {/* Red glow behind photo */}
-        <div
-          className="absolute inset-0 z-10"
-          style={{
-            background: "radial-gradient(ellipse at 50% 55%, rgba(220,28,28,0.18) 0%, transparent 65%)",
-          }}
-        />
-        <Image
-          src="/hero.png"
-          alt="Abbas Mustafa"
-          fill
-          priority
-          quality={100}
-          className="object-contain object-center z-10"
-          sizes="88vw"
-        />
-        {/* Blend bottom edge into black */}
-        <div
-          className="absolute inset-0 z-20"
-          style={{ background: "linear-gradient(to top, #080808 0%, transparent 12%)" }}
-        />
-      </div>
 
       {/* Scan line */}
       <motion.div
