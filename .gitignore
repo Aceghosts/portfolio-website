@@ -31,6 +31,10 @@ Thumbs.db
 # Vercel
 .vercel
 
+# Local video assets (site streams from YouTube; not committed)
+assets/
+*.mp4
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
