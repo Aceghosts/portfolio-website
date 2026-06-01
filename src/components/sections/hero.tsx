@@ -90,7 +90,7 @@ export function Hero() {
       {/* ── Left text content ── */}
       <motion.div
         style={{ y: textY, opacity: textOpacity }}
-        className="relative z-30 md:min-h-screen flex flex-col justify-center px-8 md:px-14 w-full md:w-[52%] pt-32 pb-8 md:py-0"
+        className="relative z-30 md:min-h-screen flex flex-col md:justify-center px-8 md:px-14 w-full md:w-[52%] pt-24 pb-0 md:py-0"
       >
         {/* Eyebrow */}
         <motion.div
@@ -152,7 +152,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.96 }}
-          className="mb-16"
+          className="mb-4 md:mb-16"
         >
           <a
             href="#projects"
@@ -169,13 +169,13 @@ export function Hero() {
         </motion.div>
       </motion.div>
 
-      {/* ── Abbas photo (mobile, stacked full-width) ── */}
-      <div className="md:hidden relative z-20 w-full h-[58vh] min-h-[420px] mt-auto">
+      {/* ── Abbas photo (mobile, stacked) ── */}
+      <div className="md:hidden relative z-20 w-[88%] mx-auto h-[72vh] min-h-[460px] mt-2">
         {/* Red glow behind photo */}
         <div
           className="absolute inset-0 z-10"
           style={{
-            background: "radial-gradient(ellipse at 50% 60%, rgba(220,28,28,0.18) 0%, transparent 65%)",
+            background: "radial-gradient(ellipse at 50% 55%, rgba(220,28,28,0.18) 0%, transparent 65%)",
           }}
         />
         <Image
@@ -184,18 +184,13 @@ export function Hero() {
           fill
           priority
           quality={100}
-          className="object-contain object-bottom z-10"
-          sizes="100vw"
+          className="object-contain object-center z-10"
+          sizes="88vw"
         />
-        {/* Blend top edge into black */}
+        {/* Blend bottom edge into black */}
         <div
           className="absolute inset-0 z-20"
-          style={{ background: "linear-gradient(to bottom, #080808 0%, transparent 22%)" }}
-        />
-        {/* Blend bottom edge */}
-        <div
-          className="absolute inset-0 z-20"
-          style={{ background: "linear-gradient(to top, #080808 0%, transparent 14%)" }}
+          style={{ background: "linear-gradient(to top, #080808 0%, transparent 12%)" }}
         />
       </div>
 
