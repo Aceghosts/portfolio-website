@@ -20,6 +20,8 @@ button{font-family:inherit;cursor:pointer}
 #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0;transition:opacity .6s}
 #cam.on{opacity:1}
 .veil{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at center,rgba(11,9,8,.15),rgba(11,9,8,.85) 80%)}
+body.xr{background:transparent}
+body.xr .veil,body.xr #space,body.xr #cam,body.xr .cursor{display:none}
 body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.14),rgba(11,9,8,.97) 70%)}
 
 /* top bar */
@@ -125,10 +127,12 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
   <div class="guide-box">
     <h2>How to use AR</h2>
     <p>Hold your phone so the back camera sees your hand. Videos float in a 3D ring around you and stay in place as you turn.</p>
+    <div id="guideRows">
     <div class="g-row"><div class="g-ico">↔</div><div><b>Pinch, then swipe left or right</b><span>Turn the ring to the next or previous video.</span></div></div>
     <div class="g-row"><div class="g-ico">↕</div><div><b>Pinch, then swipe up or down</b><span>Tilt the ring to see it from above or below.</span></div></div>
     <div class="g-row"><div class="g-ico">👌</div><div><b>Quick pinch</b><span>Open the video at the front. Quick pinch again to go back.</span></div></div>
     <div class="g-row"><div class="g-ico">⤢</div><div><b>Thumb and index, open and close</b><span>Spread them apart to move into the space, bring them together to move out.</span></div></div>
+    </div>
     <button class="chip" id="guideClose">Got it</button>
   </div>
 </div>
@@ -509,9 +513,143 @@ function handleHand(lm){
   }
 }
 
+
+/* ---------- WebXR: real world anchoring (Android Chrome) ----------
+   The phone's AR session tracks the room, so the ring is placed on a real floor or table and stays
+   there while you walk. HTML cannot live inside a tracked scene, so the ring is drawn with three.js;
+   the top bar, guide and video view stay as a DOM overlay. The AR session owns the camera, so hand
+   tracking is off in this mode: tap a card to open it, swipe to turn, two-finger pinch to resize. */
+var xrMode = false, xrStarted = false, THREE = null, threeLoad = null;
+async function xrSupported(){
+  try { return !!(navigator.xr && await navigator.xr.isSessionSupported("immersive-ar")); } catch (e) { return false; }
+}
+function cardTexture(p){
+  var c = document.createElement("canvas"); c.width = 512; c.height = 400;
+  var g = c.getContext("2d"), tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  function draw(img){
+    g.clearRect(0, 0, 512, 400);
+    g.fillStyle = "#1a1310"; g.beginPath(); g.roundRect(0, 0, 512, 400, 28); g.fill();
+    g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 3; g.stroke();
+    g.save(); g.beginPath(); g.roundRect(18, 18, 476, 268, 18); g.clip();
+    if (img) g.drawImage(img, 18, 18, 476, 268);
+    else { var gr = g.createLinearGradient(0, 0, 476, 268); gr.addColorStop(0, "#FF5A1F"); gr.addColorStop(1, "#7A2408"); g.fillStyle = gr; g.fillRect(18, 18, 476, 268); }
+    g.restore();
+    g.fillStyle = "#F4EDE4"; g.font = "600 26px Montserrat, sans-serif"; g.fillText(p.t, 24, 328);
+    g.fillStyle = "rgba(244,237,228,.7)"; g.font = "20px Montserrat, sans-serif"; g.fillText(p.h.length > 42 ? p.h.slice(0, 40) + "\u2026" : p.h, 24, 364);
+    tex.needsUpdate = true;
+  }
+  draw(null);
+  var img = new Image(); img.crossOrigin = "anonymous";
+  img.onload = function(){ draw(img); }; img.src = thumbOf(p);
+  return tex;
+}
+async function startXR(){
+  /* requestSession first: it must run inside the tap that started it */
+  var session = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["hit-test", "dom-overlay"], domOverlay: { root: document.body } });
+  THREE = await threeLoad;
+  document.body.classList.add("xr");
+  statusEl.textContent = "Point at a floor or table, then tap to place";
+  hintEl.textContent = "Tap to place \u00b7 then tap a video, swipe to turn, pinch to resize, walk around";
+
+  var renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.xr.enabled = true;
+  renderer.xr.setReferenceSpaceType("local");
+  await renderer.xr.setSession(session);
+  var scene = new THREE.Scene(), cam3 = new THREE.PerspectiveCamera();
+
+  var reticle = new THREE.Mesh(new THREE.RingGeometry(.07, .09, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xFFB35C }));
+  reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle);
+
+  /* ring of cards standing on the surface; sizes in metres */
+  var CW = .34, CH = CW * 400 / 512, RR = Math.max(.55, (CW * 1.15) / (2 * Math.sin(Math.PI * STEP / 360)));
+  var group = new THREE.Group(); group.visible = false; scene.add(group);
+  var meshes = PROJECTS.map(function(p, i){
+    var m = new THREE.Mesh(new THREE.PlaneGeometry(CW, CH), new THREE.MeshBasicMaterial({ map: cardTexture(p), transparent: true, side: THREE.DoubleSide }));
+    var a = i * STEP * Math.PI / 180;
+    m.position.set(Math.sin(a) * RR, CH / 2 + .03, Math.cos(a) * RR);
+    m.rotation.y = a;                /* faces outward, like the CSS ring */
+    m.userData.i = i; group.add(m); return m;
+  });
+
+  var viewerSpace = await session.requestReferenceSpace("viewer");
+  var hitSource = await session.requestHitTestSource({ space: viewerSpace });
+  var placed = false, xrTarget = 0;
+  renderer.setAnimationLoop(function(t, frame){
+    if (frame && !placed) {
+      var hits = frame.getHitTestResults(hitSource);
+      if (hits.length) { reticle.visible = true; reticle.matrix.fromArray(hits[0].getPose(renderer.xr.getReferenceSpace()).transform.matrix); }
+      else reticle.visible = false;
+    }
+    group.rotation.y += (xrTarget - group.rotation.y) * .2;
+    renderer.render(scene, cam3);
+  });
+
+  /* screen touches on the overlay: one finger swipes to turn, two fingers pinch to resize */
+  var moved = false, tx0 = 0, lastTx = 0, d0 = 0, s0 = 1;
+  var ui = function(e){ return e.target.closest && e.target.closest(".top, #lb, #guide, #dbgOut, .back"); };
+  var pinchD = function(e){ return Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); };
+  document.addEventListener("touchstart", function(e){
+    if (ui(e)) return;
+    if (e.touches.length === 1) { tx0 = lastTx = e.touches[0].clientX; moved = false; }
+    else if (e.touches.length === 2) { d0 = pinchD(e); s0 = group.scale.x; moved = true; }
+  }, { passive: true });
+  document.addEventListener("touchmove", function(e){
+    if (ui(e) || !placed) return;
+    if (e.touches.length === 1) {
+      var x = e.touches[0].clientX;
+      if (Math.abs(x - tx0) > 12) moved = true;
+      if (moved) xrTarget += (x - lastTx) * .008;
+      lastTx = x;
+    } else if (e.touches.length === 2 && d0) {
+      group.scale.setScalar(Math.max(.3, Math.min(4, s0 * pinchD(e) / d0)));
+    }
+  }, { passive: true });
+  /* taps on buttons and the video view must not also count as an AR tap */
+  document.body.addEventListener("beforexrselect", function(e){ if (ui(e)) e.preventDefault(); });
+
+  session.addEventListener("select", function(ev){
+    if (moved || view === "video" || guide.classList.contains("open")) return;
+    var ref = renderer.xr.getReferenceSpace(), frame = ev.frame;
+    if (!placed) {
+      if (!reticle.visible) { flash("Point at a floor or table first"); return; }
+      group.position.setFromMatrixPosition(reticle.matrix);
+      var vp = frame.getViewerPose(ref);
+      if (vp) {   /* turn the ring so the front card faces you */
+        var cp = vp.transform.position;
+        xrTarget = group.rotation.y = Math.atan2(cp.x - group.position.x, cp.z - group.position.z) - front() * STEP * Math.PI / 180;
+      }
+      group.visible = true; reticle.visible = false; placed = true;
+      statusEl.textContent = "Placed. Walk around it";
+      flash("Placed. Tap a video to open it");
+      return;
+    }
+    var pose = frame.getPose(ev.inputSource.targetRaySpace, ref);
+    if (!pose) return;
+    var o = pose.transform.position, q = pose.transform.orientation;
+    var dir = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w));
+    var hit = new THREE.Raycaster(new THREE.Vector3(o.x, o.y, o.z), dir).intersectObjects(meshes)[0];
+    if (hit) openProject(hit.object.userData.i);
+  });
+  session.addEventListener("end", function(){ location.reload(); });
+}
+
 /* ---------- start up ---------- */
 var hintEl = document.getElementById("hint");
 (async function(){
+  if (await xrSupported()) {
+    xrMode = true;
+    threeLoad = import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
+    statusEl.textContent = "Tap Start AR";
+    $("guideClose").textContent = "Start AR";
+    $("guideRows").innerHTML =
+      '<div class="g-row"><div class="g-ico">\u25CE</div><div><b>Point at a floor or table, tap to place</b><span>The ring lands on the surface and stays there while you walk around it.</span></div></div>' +
+      '<div class="g-row"><div class="g-ico">\u261D</div><div><b>Tap a video</b><span>Opens it. Use Back to return to the space.</span></div></div>' +
+      '<div class="g-row"><div class="g-ico">\u2194</div><div><b>Swipe left or right</b><span>Turns the ring.</span></div></div>' +
+      '<div class="g-row"><div class="g-ico">\u2922</div><div><b>Two-finger pinch</b><span>Makes the ring bigger or smaller.</span></div></div>';
+    return;   /* the CSS ring stays as a preview until Start AR is tapped */
+  }
   var ok = await startCamera();
   if (ok) {
     try { await startTracking(); }
@@ -527,7 +665,17 @@ var hintEl = document.getElementById("hint");
 
 /* guide */
 $("guideBtn").addEventListener("click", function(){ guide.classList.add("open"); });
-$("guideClose").addEventListener("click", function(){ guide.classList.remove("open"); startOrientation(); });
+$("guideClose").addEventListener("click", function(){
+  guide.classList.remove("open");
+  if (xrMode && !xrStarted) {
+    xrStarted = true;
+    startXR().catch(function(e){
+      statusEl.textContent = "AR failed: " + (e && e.message ? e.message.slice(0, 80) : e) + ". Using touch";
+      document.body.classList.remove("xr");
+      requestAnimationFrame(loop);
+    });
+  } else if (!xrMode) startOrientation();
+});
 $("backBtn").addEventListener("click", closeVideo);
 guide.classList.add("open");
 $("lb").addEventListener("click", function(e){ if (e.target === lb) closeVideo(); });
