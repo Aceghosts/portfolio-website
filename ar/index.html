@@ -4,26 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Creative Vault · AR · AIbbas</title>
-<meta name="description" content="Play with Abbas Mustafa's AI campaign videos in augmented reality, with your camera and hand gestures.">
+<meta name="description" content="Play with Abbas Mustafa's AI campaign videos in a 3D space, with your camera and hand gestures.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 @font-face{font-family:'Akira Expanded';src:url('../fonts/AkiraExpanded.otf') format('opentype');font-display:swap}
-:root{--bg:#0B0908;--cream:#F4EDE4;--muted:#9A8E85;--ember:#FF5A1F;--amber:#FFB35C;--line:rgba(244,237,228,.16);--display:'Akira Expanded',sans-serif;--body:'Montserrat',sans-serif}
+:root{--bg:#0B0908;--cream:#F4EDE4;--muted:#9A8E85;--ember:#FF5A1F;--amber:#FFB35C;--line:rgba(244,237,228,.16);--display:'Akira Expanded',sans-serif;--body:'Montserrat',sans-serif;--cw:min(66vw,290px)}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--cream);font-family:var(--body);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;touch-action:none}
 button{font-family:inherit;cursor:pointer}
 
-/* back camera feed, not mirrored */
+/* back camera feed, behind the 3D space */
 #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0;transition:opacity .6s}
 #cam.on{opacity:1}
-.veil{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at center,rgba(11,9,8,.3),rgba(11,9,8,.85) 75%)}
-body.no-cam .veil{background:radial-gradient(ellipse at center,rgba(255,90,31,.12),rgba(11,9,8,.96) 70%)}
+.veil{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at center,rgba(11,9,8,.15),rgba(11,9,8,.85) 80%)}
+body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.14),rgba(11,9,8,.97) 70%)}
 
 /* top bar */
-.top{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:linear-gradient(rgba(11,9,8,.85),transparent)}
+.top{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;background:linear-gradient(rgba(11,9,8,.85),transparent)}
 .top a{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .title{font-family:var(--display);font-size:12px;letter-spacing:.04em;white-space:nowrap}
 .title span{color:var(--ember)}
@@ -31,20 +31,29 @@ body.no-cam .veil{background:radial-gradient(ellipse at center,rgba(255,90,31,.1
 .status{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:right}
 .chip{border:1px solid var(--line);background:rgba(22,17,16,.7);color:var(--cream);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:8px 14px;border-radius:100px}
 
-/* stage: grid of campaign cards, pan + zoom */
-#stage{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;transform-origin:50% 50%}
-#stage.anim{transition:transform .45s cubic-bezier(.22,1,.36,1)}
-#grid{display:grid;grid-template-columns:repeat(4,minmax(180px,220px));gap:22px;padding:80px 20px 90px}
-@media (max-width:900px){#grid{grid-template-columns:repeat(2,minmax(140px,1fr));gap:14px;padding:76px 14px 90px}}
-.card{position:relative;display:flex;flex-direction:column;gap:8px;border-radius:18px;padding:12px;cursor:pointer;border:1px solid rgba(255,255,255,.26);background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 60%);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);box-shadow:0 18px 50px rgba(0,0,0,.45);transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
-.card.hover{border-color:var(--amber);transform:translateY(-4px) scale(1.04);box-shadow:0 22px 60px rgba(0,0,0,.5),0 0 40px rgba(255,90,31,.35)}
-.card .art{width:100%;aspect-ratio:16/9;border-radius:12px;background-size:cover;background-position:center;border:1px solid rgba(255,255,255,.2)}
-.card b{font-family:var(--display);font-weight:400;font-size:11px;letter-spacing:.02em;line-height:1.4}
-.card i{font-style:normal;font-size:11px;line-height:1.5;color:rgba(244,237,228,.7)}
-.card .award{position:absolute;top:18px;right:18px;font-size:10px;letter-spacing:.1em;background:rgba(11,9,8,.7);border:1px solid var(--line);padding:4px 9px;border-radius:100px}
+/* 3D space: perspective -> camera (zoom, tilt) -> ring (turns) -> cards */
+#space{position:fixed;inset:0;z-index:10;perspective:1000px;perspective-origin:50% 45%}
+#camera{position:absolute;inset:0;transform-style:preserve-3d}
+#ring{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d}
+.card{
+  position:absolute;left:calc(var(--cw) / -2);top:0;width:var(--cw);
+  display:flex;flex-direction:column;gap:9px;padding:12px;border-radius:20px;
+  border:1px solid rgba(255,255,255,.28);
+  background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,255,255,.05) 60%);
+  backdrop-filter:blur(12px) saturate(1.3);-webkit-backdrop-filter:blur(12px) saturate(1.3);
+  box-shadow:0 22px 60px rgba(0,0,0,.5);
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  transition:border-color .25s,box-shadow .25s;
+}
+.card.front{border-color:var(--amber);box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 46px rgba(255,90,31,.45)}
+.card .art{position:relative;display:block;width:100%;aspect-ratio:16/9;border-radius:14px;background-size:cover;background-position:center;border:1px solid rgba(255,255,255,.22)}
+.card .art::after{content:"▶";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;background:linear-gradient(120deg,var(--ember),var(--amber));color:#1A0C05;font-size:13px;display:flex;align-items:center;justify-content:center;opacity:.85}
+.card b{font-family:var(--display);font-weight:400;font-size:11px;letter-spacing:.02em;line-height:1.45}
+.card i{font-style:normal;font-size:11px;line-height:1.5;color:rgba(244,237,228,.72)}
+.card .award{position:absolute;top:20px;right:20px;font-size:10px;letter-spacing:.08em;background:rgba(11,9,8,.75);border:1px solid var(--line);padding:4px 9px;border-radius:100px}
 
 /* video view */
-#lb{position:fixed;inset:0;z-index:150;display:none;flex-direction:column;align-items:center;justify-content:center;padding:70px 16px 90px;background:rgba(11,9,8,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#lb{position:fixed;inset:0;z-index:150;display:none;flex-direction:column;align-items:center;justify-content:center;padding:70px 16px 70px;background:rgba(11,9,8,.93);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 #lb.open{display:flex}
 .lb-in{width:min(900px,100%);transform-origin:50% 50%;transition:transform .2s ease-out}
 .lb-title{font-family:var(--display);font-size:12px;margin-bottom:12px;text-align:center}
@@ -58,25 +67,25 @@ body.no-cam .veil{background:radial-gradient(ellipse at center,rgba(255,90,31,.1
 @media (max-width:620px){.reels{grid-template-columns:repeat(2,1fr)}}
 .lb-nav{position:fixed;bottom:18px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
-/* instructions */
-#guide{position:fixed;inset:0;z-index:180;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,9,8,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+/* guide */
+#guide{position:fixed;inset:0;z-index:180;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,9,8,.84);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 #guide.open{display:flex}
-.guide-box{width:min(460px,100%);border:1px solid var(--line);border-radius:22px;padding:26px 24px;background:rgba(22,17,16,.92)}
+.guide-box{width:min(460px,100%);max-height:100%;overflow:auto;border:1px solid var(--line);border-radius:22px;padding:24px 22px;background:rgba(22,17,16,.94)}
 .guide-box h2{font-family:var(--display);font-weight:400;font-size:14px;letter-spacing:.03em;margin-bottom:6px}
-.guide-box > p{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.6}
-.g-row{display:flex;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
-.g-ico{flex:none;width:52px;height:52px;border-radius:14px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--amber)}
+.guide-box > p{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6}
+.g-row{display:flex;gap:14px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
+.g-ico{flex:none;width:50px;height:50px;border-radius:14px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--amber)}
 .g-row b{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;margin-bottom:3px}
 .g-row span{font-size:11px;color:var(--muted);line-height:1.5}
-.guide-box .chip{margin-top:18px;width:100%;background:linear-gradient(120deg,var(--ember),var(--amber));color:#1A0C05;border:none;font-weight:600;padding:13px}
+.guide-box .chip{margin-top:16px;width:100%;background:linear-gradient(120deg,var(--ember),var(--amber));color:#1A0C05;border:none;font-weight:600;padding:13px}
 
-/* index-fingertip cursor */
-.cursor{position:fixed;left:0;top:0;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;border:2px solid var(--amber);background:rgba(255,90,31,.15);pointer-events:none;z-index:200;display:none}
+/* index fingertip dot */
+.cursor{position:fixed;left:0;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--amber);box-shadow:0 0 14px var(--ember);pointer-events:none;z-index:200;display:none}
 .cursor.on{display:block}
 .cursor.pinch{background:var(--ember);transform-origin:center}
-/* gesture feedback */
-.flash{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);z-index:220;font-family:var(--display);font-size:11px;letter-spacing:.06em;background:rgba(22,17,16,.9);border:1px solid var(--line);padding:10px 16px;border-radius:100px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.flash{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:220;font-family:var(--display);font-size:11px;letter-spacing:.06em;background:rgba(22,17,16,.92);border:1px solid var(--line);padding:10px 16px;border-radius:100px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
 .flash.show{opacity:1}
+.hint{position:fixed;left:0;right:0;bottom:0;z-index:40;text-align:center;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:26px 16px 14px;line-height:1.8;background:linear-gradient(transparent,rgba(11,9,8,.9) 50%);pointer-events:none}
 </style>
 </head>
 <body class="no-cam">
@@ -89,28 +98,35 @@ body.no-cam .veil{background:radial-gradient(ellipse at center,rgba(255,90,31,.1
   <div class="title">Creative Vault <span>· AR</span></div>
   <div class="top-r">
     <div class="status" id="status">Starting</div>
-    <button class="chip ar-hit" id="guideBtn">Guide</button>
+    <button class="chip" id="guideBtn">Guide</button>
   </div>
 </div>
 
-<div id="stage"><div id="grid"></div></div>
+<div id="space">
+  <div id="camera">
+    <div id="ring"></div>
+  </div>
+</div>
+
+<div class="hint" id="hint">Swipe to turn · pinch to open the front video</div>
 
 <div id="lb">
   <div class="lb-in" id="lbIn">
     <div class="lb-title" id="lbTitle"></div>
     <div id="lbBody"></div>
   </div>
-  <div class="lb-nav" id="lbNav">Pinch to go back · swipe left or right for next / previous</div>
+  <div class="lb-nav">Pinch to go back · swipe left or right for next or previous</div>
 </div>
 
 <div id="guide" role="dialog" aria-modal="true">
   <div class="guide-box">
     <h2>How to use AR</h2>
-    <p>Hold your phone so the back camera sees your hand. Gestures work with one hand.</p>
-    <div class="g-row"><div class="g-ico">✌</div><div><b>Two fingers together, swipe</b><span>Swipe up, down, left or right to move through the vault.</span></div></div>
-    <div class="g-row"><div class="g-ico">👌</div><div><b>Pinch thumb and index</b><span>Select a card to open its video. Pinch again to go back.</span></div></div>
-    <div class="g-row"><div class="g-ico">↔</div><div><b>Thumb and index, open and close</b><span>Spread them apart to zoom in, bring them together to zoom out.</span></div></div>
-    <button class="chip ar-hit" id="guideClose">Got it</button>
+    <p>Hold your phone so the back camera sees your hand. Videos float in a 3D ring around you.</p>
+    <div class="g-row"><div class="g-ico">↔</div><div><b>Two fingers together, swipe left or right</b><span>Turn the ring to the next or previous video.</span></div></div>
+    <div class="g-row"><div class="g-ico">↕</div><div><b>Two fingers together, swipe up or down</b><span>Tilt the ring to see it from above or below.</span></div></div>
+    <div class="g-row"><div class="g-ico">👌</div><div><b>Pinch thumb and index</b><span>Open the video at the front. Pinch again to go back.</span></div></div>
+    <div class="g-row"><div class="g-ico">⤢</div><div><b>Thumb and index, open and close</b><span>Spread them apart to move into the space, bring them together to move out.</span></div></div>
+    <button class="chip" id="guideClose">Got it</button>
   </div>
 </div>
 
@@ -140,11 +156,11 @@ var PROJECTS = [
       {label:"AI Feature",    url:"https://www.youtube.com/shorts/bo_l_FqRUpQ"}
     ] }
 ];
-var PLAYABLE = PROJECTS.map(function(p, i){ return { p: p, i: i }; }).filter(function(o){ return o.p.v || o.p.vlist; });
-
+var N = PROJECTS.length, STEP = 360 / N;
 var GRAD = ["linear-gradient(150deg,#FF5A1F,#7A2408)","linear-gradient(150deg,#FFB35C,#FF5A1F)","linear-gradient(150deg,#B8451A,#1E0B04)"];
+
 var $ = function(id){ return document.getElementById(id); };
-var grid = $("grid"), stage = $("stage"), cursor = $("cursor"), statusEl = $("status");
+var ring = $("ring"), camera = $("camera"), cursor = $("cursor"), statusEl = $("status");
 var lb = $("lb"), lbBody = $("lbBody"), lbTitle = $("lbTitle"), lbIn = $("lbIn");
 var guide = $("guide"), flashEl = $("flash"), video = $("cam");
 
@@ -155,40 +171,65 @@ function thumbOf(p){
   return id ? "https://img.youtube.com/vi/"+id+"/hqdefault.jpg" : "";
 }
 
-/* ---------- state ---------- */
-var view = "grid";          /* "grid" | "video" */
-var cur = -1;               /* index into PROJECTS of the open video */
-var zoom = 1, panX = 0, panY = 0, vZoom = 1;
-
-function applyStage(){
-  stage.style.transform = "translate("+panX+"px,"+panY+"px) scale("+zoom+")";
-}
-function applyVideoZoom(){ lbIn.style.transform = "scale("+vZoom+")"; }
-
-/* ---------- cards ---------- */
+/* ---------- ring of cards ---------- */
+/* radius so neighbouring cards just touch: chord = 2R sin(STEP/2) ~ card width + gap */
+var cardPx = Math.min(window.innerWidth * .66, 290);
+var R = Math.max(340, (cardPx * 1.12) / (2 * Math.sin(Math.PI * STEP / 360)));
+var cards = [];
 PROJECTS.forEach(function(p, i){
   var el = document.createElement("div");
-  el.className = "card ar-hit";
-  el.dataset.i = i;
+  el.className = "card";
+  el.style.transform = "translateY(-50%) rotateY(" + (i * STEP) + "deg) translateZ(" + R.toFixed(0) + "px)";
   el.innerHTML = '<span class="art" style="background-image:url('+thumbOf(p)+'),'+GRAD[i%GRAD.length]+'"></span>' +
     (p.award ? '<span class="award">🏆 Award</span>' : '') + '<b>'+p.t+'</b><i>'+p.h+'</i>';
-  el.addEventListener("click", function(){ openProject(i); });
-  grid.appendChild(el);
+  el.addEventListener("click", function(){
+    if (dragMoved) return;
+    if (i === front()) openProject(i); else { focus = i; target = -focus * STEP; }
+  });
+  ring.appendChild(el);
+  cards.push(el);
 });
+
+/* ---------- state ---------- */
+var view = "space", cur = -1;
+var focus = 0, rot = 0, target = 0;     /* ring rotation in degrees; focus = card at the front */
+var tilt = 0, tiltTarget = 0;           /* pitch of the ring */
+var camZ = 0, camTarget = 0;            /* zoom: move into / out of the space */
+function mod(a, n){ return ((a % n) + n) % n; }
+function front(){ return mod(focus, N); }
+
+function render(){
+  camera.style.transform = "translate3d(0,0," + camZ.toFixed(1) + "px)";
+  ring.style.transform = "rotateX(" + tilt.toFixed(2) + "deg) rotateY(" + rot.toFixed(2) + "deg)";
+  for (var i = 0; i < N; i++) {
+    var a = (i * STEP + rot) * Math.PI / 180;
+    var c = Math.cos(a);
+    cards[i].style.opacity = (.3 + .7 * (c + 1) / 2).toFixed(3);
+    cards[i].classList.toggle("front", i === front() && view === "space");
+  }
+}
+
+/* ease the ring, tilt and zoom toward their targets each frame */
+function ease(){
+  if (!dragging) {
+    rot += (target - rot) * .16;
+    tilt += (tiltTarget - tilt) * .16;
+  }
+  camZ += (camTarget - camZ) * .18;
+  render();
+}
 
 function openProject(i){
   var p = PROJECTS[i];
-  if (!p.v && !p.vlist) {
-    if (p.link) window.open(p.link, "_blank", "noopener,noreferrer");
-    return;
-  }
-  cur = i; view = "video"; vZoom = 1; applyVideoZoom();
+  if (!p.v && !p.vlist) { if (p.link) window.open(p.link, "_blank", "noopener,noreferrer"); return; }
+  cur = i; view = "video"; lastOpen = performance.now();
   lbTitle.textContent = p.t;
   lbBody.innerHTML = "";
+  lbIn.style.transform = "";
   if (p.vlist) {
     var wrap = document.createElement("div"); wrap.className = "reels";
     p.vlist.forEach(function(r){
-      var b = document.createElement("button"); b.className = "reel ar-hit";
+      var b = document.createElement("button"); b.className = "reel";
       b.innerHTML = '<span class="t" style="background-image:url(https://img.youtube.com/vi/'+ytId(r.url)+'/hqdefault.jpg)"><span>▶</span></span>'+r.label;
       b.addEventListener("click", function(){ playFrame(r.url, true, r.label); });
       wrap.appendChild(b);
@@ -199,106 +240,79 @@ function openProject(i){
   }
   lb.classList.add("open");
 }
+var lastOpen = 0;
 function playFrame(url, tall, title){
   lbTitle.textContent = title;
   lbBody.innerHTML = '<div class="frame'+(tall?' tall':'')+'"><iframe src="https://www.youtube.com/embed/'+ytId(url)+'?autoplay=1&rel=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen title="'+title+'"></iframe></div>';
 }
 function closeVideo(){
-  view = "grid"; cur = -1;
+  view = "space"; cur = -1; lastOpen = performance.now();
   lb.classList.remove("open");
   lbBody.innerHTML = "";
 }
-
-/* step through playable videos left or right while a video is open */
 function stepVideo(dir){
-  var pos = PLAYABLE.findIndex(function(o){ return o.i === cur; });
-  var next = PLAYABLE[(pos + dir + PLAYABLE.length) % PLAYABLE.length];
-  openProject(next.i);
+  var playable = [];
+  PROJECTS.forEach(function(p, i){ if (p.v || p.vlist) playable.push(i); });
+  var pos = playable.indexOf(cur);
+  openProject(playable[(pos + dir + playable.length) % playable.length]);
   flash(dir > 0 ? "Next video" : "Previous video");
 }
 
-/* ---------- actions shared by gestures and pointers ---------- */
+/* ---------- gestures ---------- */
 var flashT = null;
 function flash(text){
   flashEl.textContent = text; flashEl.classList.add("show");
   clearTimeout(flashT); flashT = setTimeout(function(){ flashEl.classList.remove("show"); }, 900);
 }
-function swipe(dir){ /* dir: "up" | "down" | "left" | "right" */
-  if (view === "video") {
-    if (dir === "left") stepVideo(1);
-    else if (dir === "right") stepVideo(-1);
-    return;
-  }
-  var step = 180;
-  if (dir === "left") panX -= step;
-  if (dir === "right") panX += step;
-  if (dir === "up") panY -= step;
-  if (dir === "down") panY += step;
-  clampPan();
-  stage.classList.add("anim"); applyStage();
-  flash("Swipe " + ({up:"↑",down:"↓",left:"←",right:"→"})[dir]);
+function turn(dir){                       /* dir: +1 next card, -1 previous */
+  if (view === "video") { stepVideo(dir); return; }
+  focus += dir; target = -focus * STEP;
 }
-function clampPan(){
-  var w = grid.offsetWidth * zoom, h = grid.offsetHeight * zoom;
-  var mx = Math.max(0, (w - innerWidth) / 2 + 60), my = Math.max(0, (h - innerHeight) / 2 + 60);
-  panX = Math.max(-mx, Math.min(mx, panX));
-  panY = Math.max(-my, Math.min(my, panY));
-}
-function setZoom(z){
-  if (view === "video") { vZoom = Math.max(.6, Math.min(2.2, z)); applyVideoZoom(); return; }
-  zoom = Math.max(.5, Math.min(2.5, z)); clampPan(); applyStage();
-}
-function zoomLabel(){ flash(view === "video" ? "Zoom " + vZoom.toFixed(1) + "x" : "Zoom " + zoom.toFixed(1) + "x"); }
+function tiltBy(d){ tiltTarget = Math.max(-28, Math.min(28, tiltTarget + d)); }
+function zoomTo(z){ camTarget = Math.max(-380, Math.min(260, z)); }
 
-/* ---------- hover + pinch selection ---------- */
-var hoverEl = null;
-function hitAt(x, y){
-  var el = document.elementFromPoint(x, y);
-  return el && el.closest ? el.closest(".ar-hit") : null;
-}
-function setCursor(x, y){
-  cursor.classList.add("on");
-  cursor.style.transform = "translate("+x+"px,"+y+"px)";
-  var hit = hitAt(x, y);
-  if (hit !== hoverEl) {
-    if (hoverEl) hoverEl.classList.remove("hover");
-    hoverEl = hit;
-    if (hit) hit.classList.add("hover");
-  }
-}
-
-/* ---------- guide ---------- */
-function openGuide(){ guide.classList.add("open"); }
-function closeGuide(){ guide.classList.remove("open"); }
-$("guideBtn").addEventListener("click", openGuide);
-$("guideClose").addEventListener("click", closeGuide);
-openGuide();
-
-/* ---------- pointer fallback (no camera, touch or mouse) ---------- */
-window.addEventListener("wheel", function(e){
-  if (guide.classList.contains("open")) return;
-  setZoom((view === "video" ? vZoom : zoom) * (e.deltaY < 0 ? 1.08 : 1/1.08));
-}, { passive: true });
-var drag = null;
+/* ---------- pointer fallback (no camera, mouse or touch) ---------- */
+var dragging = false, dragMoved = false, dragX = 0, dragY = 0, dragRot = 0, dragTilt = 0;
 document.addEventListener("pointerdown", function(e){
-  if (e.target.closest("#guide")) return;
-  if (view === "grid") drag = { x: e.clientX, y: e.clientY, px: panX, py: panY, moved: false };
+  if (e.target.closest("#guide, #lb")) return;
+  dragging = true; dragMoved = false; dragX = e.clientX; dragY = e.clientY; dragRot = target; dragTilt = tiltTarget;
 });
 document.addEventListener("pointermove", function(e){
-  if (e.pointerType === "mouse") setCursor(e.clientX, e.clientY);
-  if (!drag) return;
-  if (Math.abs(e.clientX - drag.x) > 6 || Math.abs(e.clientY - drag.y) > 6) drag.moved = true;
-  if (drag.moved) { panX = drag.px + (e.clientX - drag.x); panY = drag.py + (e.clientY - drag.y); clampPan(); applyStage(); }
+  if (e.pointerType === "mouse") setDot(e.clientX, e.clientY, false);
+  if (!dragging || view !== "space") return;
+  var dx = e.clientX - dragX, dy = e.clientY - dragY;
+  if (Math.abs(dx) > 6 || Math.abs(dy) > 6) dragMoved = true;
+  if (dragMoved) {
+    rot = dragRot + dx * .35;
+    tilt = Math.max(-28, Math.min(28, dragTilt - dy * .2));
+  }
 });
-document.addEventListener("pointerup", function(){ drag = null; });
+document.addEventListener("pointerup", function(){
+  if (!dragging) return;
+  dragging = false;
+  if (view === "space" && dragMoved) {
+    focus = Math.round(-rot / STEP); target = -focus * STEP;
+    tiltTarget = tilt;
+  }
+  setTimeout(function(){ dragMoved = false; }, 30);
+});
+window.addEventListener("wheel", function(e){
+  if (guide.classList.contains("open") || view !== "space") return;
+  zoomTo(camTarget - e.deltaY * .4);
+}, { passive: true });
 
 /* ---------- hand tracking ---------- */
 var hands = null, lastVideoTime = -1;
-var smooth = null, pinchWas = false, lastFire = 0, lastZoomLabel = 0;
-var swipeAnchor = null, lastSwipe = 0;
-var zoomBase = null;
+var dotX = null, dotY = null;
+var pinchFrames = 0, pinchFired = false, lastSelect = 0;
+var swipeAnchor = null, lastSwipe = 0, zoomBase = null;
 
 function dist(a, b){ return Math.hypot(a.x - b.x, a.y - b.y); }
+function setDot(x, y, pinching){
+  cursor.classList.add("on");
+  cursor.style.transform = "translate(" + x.toFixed(0) + "px," + y.toFixed(0) + "px)";
+  cursor.classList.toggle("pinch", pinching);
+}
 
 async function startCamera(){
   try {
@@ -311,7 +325,7 @@ async function startCamera(){
     document.body.classList.remove("no-cam");
     return true;
   } catch (err) {
-    statusEl.textContent = "Camera off. Use mouse or touch";
+    statusEl.textContent = "Camera off. Use touch or mouse";
     return false;
   }
 }
@@ -321,10 +335,10 @@ async function startTracking(){
   var vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
   hands = await HandLandmarker.createFromOptions(vision, {
     baseOptions: { modelAssetPath: "hand_landmarker.task", delegate: "GPU" },
-    runningMode: "VIDEO", numHands: 1
+    runningMode: "VIDEO", numHands: 1,
+    minHandDetectionConfidence: .7, minHandPresenceConfidence: .7, minTrackingConfidence: .6
   });
   statusEl.textContent = "Back camera on";
-  requestAnimationFrame(loop);
 }
 
 function loop(now){
@@ -333,87 +347,88 @@ function loop(now){
     var res = hands.detectForVideo(video, now);
     handleHand(res.landmarks && res.landmarks[0]);
   }
+  ease();
   requestAnimationFrame(loop);
 }
 
-/* classify one hand from its 21 landmarks; the hand is never mirrored (back camera) */
+/* one hand, read from its 21 landmarks; the back camera image is not mirrored */
 function handleHand(lm){
   if (!lm) {
-    cursor.classList.remove("on", "pinch");
-    if (hoverEl) { hoverEl.classList.remove("hover"); hoverEl = null; }
-    pinchWas = false; swipeAnchor = null; zoomBase = null;
+    cursor.classList.remove("on");
+    pinchFrames = 0; pinchFired = false; swipeAnchor = null; zoomBase = null;
     return;
   }
   var s = dist(lm[0], lm[9]) || .1;
-  var thumbIndex = dist(lm[4], lm[8]) / s;            /* small = pinched, large = open */
-  var fingerTogether = dist(lm[8], lm[12]) / s;       /* index and middle close together */
-  var indexUp = dist(lm[0], lm[8]) > dist(lm[0], lm[6]) * 1.15;
-  var middleUp = dist(lm[0], lm[12]) > dist(lm[0], lm[10]) * 1.15;
+  var thumbIndex = dist(lm[4], lm[8]) / s;
+  var together = dist(lm[8], lm[12]) / s;
+  var indexUp = dist(lm[0], lm[8]) > dist(lm[0], lm[6]) * 1.2;
+  var middleUp = dist(lm[0], lm[12]) > dist(lm[0], lm[10]) * 1.2;
 
-  /* index fingertip is the pointer */
-  var sx = lm[8].x * innerWidth, sy = lm[8].y * innerHeight;   /* back camera: not mirrored */
-  if (!smooth) smooth = { x: sx, y: sy };
-  smooth.x += (sx - smooth.x) * .4; smooth.y += (sy - smooth.y) * .4;
-  setCursor(smooth.x, smooth.y);
+  /* index fingertip dot, smoothed */
+  var sx = lm[8].x * innerWidth, sy = lm[8].y * innerHeight;
+  if (dotX === null) { dotX = sx; dotY = sy; }
+  dotX += (sx - dotX) * .4; dotY += (sy - dotY) * .4;
 
-  var nowPose = "none";
-  if (thumbIndex < .32) nowPose = "pinch";
-  else if (fingerTogether < .35 && indexUp && middleUp) nowPose = "swipe";
-  else if (thumbIndex > .55) nowPose = "zoom";
-
-  /* pinch: select the card under the pointer, or go back from a video (on the press) */
-  var pinchNow = nowPose === "pinch";
-  cursor.classList.toggle("pinch", pinchNow);
-  if (pinchNow && !pinchWas && performance.now() - lastFire > 600) {
-    lastFire = performance.now();
-    if (hoverEl && (view !== "video" || hoverEl.classList.contains("reel") || hoverEl.closest("#guide"))) {
-      hoverEl.click();   /* select a card, a reel, or a guide button */
-    } else if (view === "video") {
-      closeVideo(); flash("Back to vault");
+  /* pinch: needs ~4 steady frames to count, and fires once per press, so jitter does not open videos */
+  var pinching = pinchFired ? thumbIndex < .42 : thumbIndex < .25;
+  setDot(dotX, dotY, pinching);
+  if (pinching) {
+    pinchFrames++;
+    var settled = view === "video" || Math.abs(rot - target) < 3;
+    if (!pinchFired && pinchFrames >= 4 && settled && performance.now() - lastSelect > 1000 && performance.now() - lastOpen > 900) {
+      pinchFired = true; lastSelect = performance.now();
+      if (view === "video") { closeVideo(); flash("Back to the space"); }
+      else { openProject(front()); }
     }
+  } else {
+    pinchFrames = 0; pinchFired = false;
   }
-  pinchWas = pinchNow;
 
-  /* two fingers together: swipe in any direction */
-  if (nowPose === "swipe") {
-    var mx = (lm[8].x + lm[12].x) / 2, my = (lm[8].y + lm[12].y) / 2;
+  /* two fingers together: swipe left/right turns the ring, up/down tilts it */
+  if (!pinching && together < .4 && indexUp && middleUp) {
+    var mx = (lm[8].x + lm[12].x) / 2 * innerWidth, my = (lm[8].y + lm[12].y) / 2 * innerHeight;
     if (!swipeAnchor) swipeAnchor = { x: mx, y: my };
-    var dx = (mx - swipeAnchor.x) * innerWidth, dy = (my - swipeAnchor.y) * innerHeight;
-    var big = Math.max(Math.abs(dx), Math.abs(dy));
-    if (big > 90 && performance.now() - lastSwipe > 450) {
-      var dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down");
+    var dx = mx - swipeAnchor.x, dy = my - swipeAnchor.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 70 && performance.now() - lastSwipe > 500) {
       lastSwipe = performance.now();
-      swipe(dir);
+      if (Math.abs(dx) > Math.abs(dy)) { turn(dx < 0 ? 1 : -1); flash(dx < 0 ? "Swipe ←" : "Swipe →"); }
+      else { tiltBy(dy < 0 ? 8 : -8); flash(dy < 0 ? "Swipe ↑" : "Swipe ↓"); }
       swipeAnchor = { x: mx, y: my };
     }
   } else {
     swipeAnchor = null;
   }
 
-  /* thumb and index apart: scale the stage (or the open video) with the gap */
-  if (nowPose === "zoom") {
-    if (!zoomBase) zoomBase = { r: thumbIndex, z: view === "video" ? vZoom : zoom };
-    setZoom(zoomBase.z * (thumbIndex / zoomBase.r));
-    if (performance.now() - lastZoomLabel > 700) { zoomLabel(); lastZoomLabel = performance.now(); }
+  /* thumb and index apart: move into (open) or out of (close) the space */
+  if (!pinching && thumbIndex > .6 && together > .5) {
+    if (!zoomBase) zoomBase = { r: thumbIndex, z: camTarget };
+    zoomTo(zoomBase.z + (thumbIndex - zoomBase.r) * 500);
   } else {
     zoomBase = null;
   }
 }
 
 /* ---------- start up ---------- */
+var hintEl = document.getElementById("hint");
 (async function(){
   var ok = await startCamera();
   if (ok) {
     try { await startTracking(); }
-    catch (e) { statusEl.textContent = "Hand tracking unavailable. Use mouse or touch"; }
-  } else {
-    cursor.classList.remove("on");
+    catch (e) { statusEl.textContent = "Hand tracking unavailable. Use touch or mouse"; }
   }
+  if (!ok) cursor.classList.remove("on");
+  requestAnimationFrame(loop);
 })();
 
+/* guide */
+$("guideBtn").addEventListener("click", function(){ guide.classList.add("open"); });
+$("guideClose").addEventListener("click", function(){ guide.classList.remove("open"); });
+guide.classList.add("open");
+$("lb").addEventListener("click", function(e){ if (e.target === lb) closeVideo(); });
 window.addEventListener("keydown", function(e){
-  if (e.key === "Escape") { if (guide.classList.contains("open")) closeGuide(); else closeVideo(); }
+  if (e.key === "Escape") { if (guide.classList.contains("open")) guide.classList.remove("open"); else closeVideo(); }
 });
+render();
 </script>
 </body>
 </html>
