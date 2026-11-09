@@ -134,7 +134,14 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
 </div>
 
 <div class="cursor" id="cursor"></div>
-<pre id="dbgOut" style="display:none;position:fixed;left:8px;bottom:70px;z-index:230;font:11px/1.5 monospace;color:#FFB35C;background:rgba(0,0,0,.7);padding:8px 10px;border-radius:8px;pointer-events:none"></pre>
+<div id="dbgOut" style="display:none;position:fixed;left:8px;right:8px;bottom:70px;z-index:230;font:11px/1.5 monospace;color:#FFB35C;background:rgba(0,0,0,.78);padding:8px 10px;border-radius:8px;touch-action:auto">
+  <pre id="dbgText" style="font:inherit;white-space:pre-wrap"></pre>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:4px">pinch <input type="range" data-k="pinch" min="0.15" max="0.5" step="0.01" style="flex:1"><b data-v="pinch"></b></label>
+  <label style="display:flex;gap:8px;align-items:center">swipe <input type="range" data-k="swipe" min="0.08" max="0.5" step="0.01" style="flex:1"><b data-v="swipe"></b></label>
+  <label style="display:flex;gap:8px;align-items:center">zoom <input type="range" data-k="zoom" min="50" max="900" step="10" style="flex:1"><b data-v="zoom"></b></label>
+  <label style="display:flex;gap:8px;align-items:center">anchor <input type="range" data-k="smooth" min="0.1" max="1" step="0.05" style="flex:1"><b data-v="smooth"></b></label>
+  <button id="tuneReset" class="chip" style="margin-top:6px;padding:5px 10px;font-size:10px">Reset</button>
+</div>
 <div class="flash" id="flash"></div>
 
 <script>
@@ -172,6 +179,16 @@ var N = PROJECTS.length, STEP = 360 / N;
 var GRAD = ["linear-gradient(150deg,#FF5A1F,#7A2408)","linear-gradient(150deg,#FFB35C,#FF5A1F)","linear-gradient(150deg,#B8451A,#1E0B04)"];
 
 var $ = function(id){ return document.getElementById(id); };
+
+/* tunables. Defaults are the current best guess; the Debug panel's sliders change them live and the phone remembers them.
+   pinch: thumb-to-index distance (in hand widths) that counts as a pinch. Release is pinch + .12.
+   swipe: how far the pinched hand moves, as a fraction of screen width, to turn one card.
+   zoom: how many px the space moves per hand width of thumb-index spread.
+   smooth: how fast the ring follows the phone's orientation (1 = instant, lower = smoother but laggier). */
+var DEFAULTS = { pinch: .28, swipe: .2, zoom: 350, smooth: .7 };
+var T = Object.assign({}, DEFAULTS);
+try { Object.assign(T, JSON.parse(localStorage.getItem("ar-tune") || "{}")); } catch (e) {}
+function saveTune(){ try { localStorage.setItem("ar-tune", JSON.stringify(T)); } catch (e) {} }
 var ring = $("ring"), camera = $("camera"), cursor = $("cursor"), statusEl = $("status");
 var lb = $("lb"), lbBody = $("lbBody"), lbTitle = $("lbTitle"), lbIn = $("lbIn");
 var guide = $("guide"), flashEl = $("flash"), video = $("cam");
@@ -232,7 +249,7 @@ function startOrientation(){
 }
 
 function render(){
-  yawView += (devYaw - yawView) * .35; pitchView += (devPitch - pitchView) * .35;
+  yawView += (devYaw - yawView) * T.smooth; pitchView += (devPitch - pitchView) * T.smooth;
   var ry = rot + YAW_SIGN * yawView, rx = tilt + PITCH_SIGN * pitchView;
   camera.style.transform = "translate3d(0,0," + camZ.toFixed(1) + "px)";
   ring.style.transform = "rotateX(" + rx.toFixed(2) + "deg) rotateY(" + ry.toFixed(2) + "deg)";
@@ -309,7 +326,7 @@ function zoomTo(z){ camTarget = Math.max(-380, Math.min(260, z)); }
 /* ---------- pointer fallback (no camera, mouse or touch) ---------- */
 var dragging = false, dragMoved = false, dragX = 0, dragY = 0, dragRot = 0, dragTilt = 0;
 document.addEventListener("pointerdown", function(e){
-  if (e.target.closest("#guide, #lb")) return;
+  if (e.target.closest("#guide, #lb, #dbgOut")) return;
   dragging = true; dragMoved = false; dragX = e.clientX; dragY = e.clientY; dragRot = target; dragTilt = tiltTarget;
 });
 document.addEventListener("pointermove", function(e){
@@ -343,13 +360,24 @@ var pinchFrames = 0, pinchActive = false, pinchStart = 0, pinchAnchor = null, pi
 var lastSwipe = 0, zoomBase = null;
 var lastMetrics = null, frameMs = 0, detectMs = 0, fpsCount = 0, fpsStart = performance.now(), fpsShown = 0, detectShown = 0;
 var debugOn = false;
-var dbg = document.getElementById("dbgOut");
+var dbg = document.getElementById("dbgOut"), dbgText = document.getElementById("dbgText");
+Array.prototype.forEach.call(dbg.querySelectorAll("input[data-k]"), function(inp){
+  var k = inp.dataset.k, out = dbg.querySelector("[data-v=" + k + "]");
+  var show = function(){ inp.value = T[k]; out.textContent = T[k]; };
+  show();
+  inp.addEventListener("input", function(){ T[k] = parseFloat(inp.value); out.textContent = T[k]; saveTune(); });
+  inp._show = show;
+});
+document.getElementById("tuneReset").addEventListener("click", function(){
+  Object.assign(T, DEFAULTS); saveTune();
+  Array.prototype.forEach.call(dbg.querySelectorAll("input[data-k]"), function(inp){ inp._show(); });
+});
 function updateDebug(now){
   fpsCount++;
   if (now - fpsStart > 1000) { fpsShown = fpsCount; fpsCount = 0; fpsStart = now; }
   if (!debugOn) return;
   var m = lastMetrics || {};
-  dbg.textContent = "fps " + fpsShown + " · detect " + detectShown.toFixed(0) + "ms" +
+  dbgText.textContent = "fps " + fpsShown + " · detect " + detectShown.toFixed(0) + "ms" +
     "\npinch " + (m.thumbIndex != null ? m.thumbIndex.toFixed(2) : "-") +
     " · together " + (m.together != null ? m.together.toFixed(2) : "-") +
     "\nyaw " + yawView.toFixed(0) + " · pitch " + pitchView.toFixed(0) +
@@ -446,14 +474,14 @@ function handleHand(lm){
      a short pinch with no swipe opens the front video, or goes back from a video.
      The select fires on release, so a swipe never opens a video by accident. */
   var now = performance.now();
-  var pinching = pinchActive ? thumbIndex < .42 : thumbIndex < .3;   /* hysteresis so a shaky hand does not flicker */
+  var pinching = pinchActive ? thumbIndex < T.pinch + .12 : thumbIndex < T.pinch;   /* hysteresis so a shaky hand does not flicker */
   setDot(dotX, dotY, pinching);
   var px = (lm[4].x + lm[8].x) / 2 * innerWidth, py = (lm[4].y + lm[8].y) / 2 * innerHeight;
   if (pinching) {
     pinchFrames++;
     if (!pinchActive) { pinchActive = true; pinchStart = now; pinchAnchor = { x: px, y: py }; pinchDragged = false; }
     var dx = px - pinchAnchor.x, dy = py - pinchAnchor.y;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) > 50 && now - lastSwipe > 350) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > T.swipe * innerWidth && now - lastSwipe > 450) {
       lastSwipe = now; pinchDragged = true;
       if (Math.abs(dx) > Math.abs(dy)) { turn(dx < 0 ? 1 : -1); flash(dx < 0 ? "Swipe ←" : "Swipe →"); }
       else { tiltBy(dy < 0 ? 8 : -8); flash(dy < 0 ? "Swipe ↑" : "Swipe ↓"); }
@@ -473,9 +501,9 @@ function handleHand(lm){
   }
 
   /* thumb and index apart: move into (open) or out of (close) the space */
-  if (!pinching && thumbIndex > .55) {
+  if (!pinching && thumbIndex > .6) {
     if (!zoomBase) zoomBase = { r: thumbIndex, z: camTarget };
-    zoomTo(zoomBase.z + (thumbIndex - zoomBase.r) * 500);
+    zoomTo(zoomBase.z + (thumbIndex - zoomBase.r) * T.zoom);
   } else {
     zoomBase = null;
   }
