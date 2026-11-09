@@ -134,7 +134,7 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
 </div>
 
 <div class="cursor" id="cursor"></div>
-<pre id="dbg" style="display:none;position:fixed;left:8px;bottom:70px;z-index:230;font:11px/1.5 monospace;color:#FFB35C;background:rgba(0,0,0,.7);padding:8px 10px;border-radius:8px;pointer-events:none"></pre>
+<pre id="dbgOut" style="display:none;position:fixed;left:8px;bottom:70px;z-index:230;font:11px/1.5 monospace;color:#FFB35C;background:rgba(0,0,0,.7);padding:8px 10px;border-radius:8px;pointer-events:none"></pre>
 <div class="flash" id="flash"></div>
 
 <script>
@@ -322,7 +322,7 @@ var pinchFrames = 0, pinchFired = false, lastSelect = 0;
 var swipeAnchor = null, lastSwipe = 0, zoomBase = null;
 var lastMetrics = null, frameMs = 0, detectMs = 0, fpsCount = 0, fpsStart = performance.now(), fpsShown = 0, detectShown = 0;
 var debugOn = false;
-var dbg = document.getElementById("dbg");
+var dbg = document.getElementById("dbgOut");
 function updateDebug(now){
   fpsCount++;
   if (now - fpsStart > 1000) { fpsShown = fpsCount; fpsCount = 0; fpsStart = now; }
