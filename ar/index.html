@@ -100,6 +100,7 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
   <div class="top-r">
     <div class="status" id="status">Starting</div>
     <button class="chip" id="guideBtn">Guide</button>
+    <button class="chip" id="dbgBtn">Debug</button>
   </div>
 </div>
 
@@ -133,6 +134,7 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
 </div>
 
 <div class="cursor" id="cursor"></div>
+<pre id="dbg" style="display:none;position:fixed;left:8px;bottom:70px;z-index:230;font:11px/1.5 monospace;color:#FFB35C;background:rgba(0,0,0,.7);padding:8px 10px;border-radius:8px;pointer-events:none"></pre>
 <div class="flash" id="flash"></div>
 
 <script type="module">
@@ -196,7 +198,7 @@ PROJECTS.forEach(function(p, i){
 
 /* ---------- state ---------- */
 var view = "space", cur = -1;
-var focus = 0, rot = 0, target = 0;     /* ring rotation in degrees; focus = card at the front */
+var focus = 1, rot = -STEP, target = -STEP;   /* ring rotation in degrees; focus = card at the front. Starts on a card that plays a video */
 var tilt = 0, tiltTarget = 0;           /* pitch of the ring */
 var camZ = 0, camTarget = 0;            /* zoom: move into / out of the space */
 function mod(a, n){ return ((a % n) + n) % n; }
@@ -310,6 +312,20 @@ var hands = null, lastVideoTime = -1;
 var dotX = null, dotY = null;
 var pinchFrames = 0, pinchFired = false, lastSelect = 0;
 var swipeAnchor = null, lastSwipe = 0, zoomBase = null;
+var lastMetrics = null, frameMs = 0, detectMs = 0, fpsCount = 0, fpsStart = performance.now(), fpsShown = 0, detectShown = 0;
+var debugOn = false;
+var dbg = document.getElementById("dbg");
+function updateDebug(now){
+  fpsCount++;
+  if (now - fpsStart > 1000) { fpsShown = fpsCount; fpsCount = 0; fpsStart = now; }
+  if (!debugOn) return;
+  var m = lastMetrics || {};
+  dbg.textContent = "fps " + fpsShown + " · detect " + detectShown.toFixed(0) + "ms" +
+    "\npinch " + (m.thumbIndex != null ? m.thumbIndex.toFixed(2) : "-") +
+    " · together " + (m.together != null ? m.together.toFixed(2) : "-") +
+    "\nindex up " + m.indexUp + " · middle up " + m.middleUp +
+    "\nview " + view + " · focus " + focus + " · zoom " + camZ.toFixed(0);
+}
 
 function dist(a, b){ return Math.hypot(a.x - b.x, a.y - b.y); }
 function setDot(x, y, pinching){
@@ -349,9 +365,12 @@ async function startTracking(){
 function loop(now){
   if (hands && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
     lastVideoTime = video.currentTime;
+    var t0 = performance.now();
     var res = hands.detectForVideo(video, now);
+    detectShown = performance.now() - t0;
     handleHand(res.landmarks && res.landmarks[0]);
   }
+  updateDebug(now);
   ease();
   requestAnimationFrame(loop);
 }
@@ -366,8 +385,9 @@ function handleHand(lm){
   var s = dist(lm[0], lm[9]) || .1;
   var thumbIndex = dist(lm[4], lm[8]) / s;
   var together = dist(lm[8], lm[12]) / s;
-  var indexUp = dist(lm[0], lm[8]) > dist(lm[0], lm[6]) * 1.2;
-  var middleUp = dist(lm[0], lm[12]) > dist(lm[0], lm[10]) * 1.2;
+  var indexUp = dist(lm[0], lm[8]) > dist(lm[0], lm[6]) * 1.1;
+  var middleUp = dist(lm[0], lm[12]) > dist(lm[0], lm[10]) * 1.1;
+  lastMetrics = { thumbIndex: thumbIndex, together: together, indexUp: indexUp, middleUp: middleUp };
 
   /* index fingertip dot, smoothed */
   var sx = lm[8].x * innerWidth, sy = lm[8].y * innerHeight;
@@ -377,23 +397,24 @@ function handleHand(lm){
   /* pinch: needs ~4 steady frames to count, and fires once per press, so jitter does not open videos */
   /* a pinch has thumb and index touching while the middle finger stays up; a closed fist does not count */
   /* inside a video, any pinch goes back (looser, so it is easy to hit); on the ring it must be a clean pinch */
-  var pinchOn = view === "video" ? thumbIndex < .32 : (thumbIndex < .25 && middleUp);
+  var pinchOn = thumbIndex < .3;
   var pinching = pinchFired ? thumbIndex < .42 : pinchOn;
   setDot(dotX, dotY, pinching);
   if (pinching) {
     pinchFrames++;
-    var settled = view === "video" || Math.abs(rot - target) < 3;
+    var settled = view === "video" || Math.abs(rot - target) < 10;
     if (!pinchFired && pinchFrames >= 3 && settled && performance.now() - lastSelect > 700 && performance.now() - lastOpen > 600) {
       pinchFired = true; lastSelect = performance.now();
       if (view === "video") { closeVideo(); flash("Back to the space"); }
-      else { openProject(front()); }
+      else if (PROJECTS[front()].v || PROJECTS[front()].vlist) { openProject(front()); }
+      else { flash("No video here. Swipe to another card"); }
     }
   } else {
     pinchFrames = 0; pinchFired = false;
   }
 
   /* two fingers together: swipe left/right turns the ring, up/down tilts it */
-  if (!pinching && together < .4 && indexUp && middleUp) {
+  if (!pinching && together < .5 && indexUp && middleUp) {
     var mx = (lm[8].x + lm[12].x) / 2 * innerWidth, my = (lm[8].y + lm[12].y) / 2 * innerHeight;
     if (!swipeAnchor) swipeAnchor = { x: mx, y: my };
     var dx = mx - swipeAnchor.x, dy = my - swipeAnchor.y;
@@ -408,7 +429,7 @@ function handleHand(lm){
   }
 
   /* thumb and index apart: move into (open) or out of (close) the space */
-  if (!pinching && thumbIndex > .6 && together > .5) {
+  if (!pinching && thumbIndex > .55 && !(indexUp && middleUp && together < .5)) {
     if (!zoomBase) zoomBase = { r: thumbIndex, z: camTarget };
     zoomTo(zoomBase.z + (thumbIndex - zoomBase.r) * 500);
   } else {
@@ -438,6 +459,9 @@ window.addEventListener("keydown", function(e){
   if (e.key === "Escape") { if (guide.classList.contains("open")) guide.classList.remove("open"); else closeVideo(); }
 });
 render();
+/* test hook: lets the page's own gesture code be driven with landmark data */
+window.__ar = { handleHand: handleHand, state: function(){ return { view: view, focus: focus, rot: rot, target: target, camZ: camZ }; } };
+$("dbgBtn").addEventListener("click", function(){ debugOn = !debugOn; dbg.style.display = debugOn ? "block" : "none"; });
 </script>
 </body>
 </html>
