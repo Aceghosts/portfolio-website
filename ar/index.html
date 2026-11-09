@@ -575,12 +575,16 @@ async function startXR(){
 
   var viewerSpace = await session.requestReferenceSpace("viewer");
   var hitSource = await session.requestHitTestSource({ space: viewerSpace });
-  var placed = false, xrTarget = 0;
+  var placed = false, xrTarget = 0, camPos = null;
   renderer.setAnimationLoop(function(t, frame){
     if (frame && !placed) {
+      var ref = renderer.xr.getReferenceSpace();
       var hits = frame.getHitTestResults(hitSource);
-      if (hits.length) { reticle.visible = true; reticle.matrix.fromArray(hits[0].getPose(renderer.xr.getReferenceSpace()).transform.matrix); }
+      if (hits.length) { reticle.visible = true; reticle.matrix.fromArray(hits[0].getPose(ref).transform.matrix); }
       else reticle.visible = false;
+      /* getViewerPose is only allowed here, in the frame loop, so remember the phone's position for the placing tap */
+      var vp = frame.getViewerPose(ref);
+      if (vp) camPos = vp.transform.position;
     }
     group.rotation.y += (xrTarget - group.rotation.y) * .2;
     renderer.render(scene, cam3);
@@ -615,10 +619,8 @@ async function startXR(){
     if (!placed) {
       if (!reticle.visible) { flash("Point at a floor or table first"); return; }
       group.position.setFromMatrixPosition(reticle.matrix);
-      var vp = frame.getViewerPose(ref);
-      if (vp) {   /* turn the ring so the front card faces you */
-        var cp = vp.transform.position;
-        xrTarget = group.rotation.y = Math.atan2(cp.x - group.position.x, cp.z - group.position.z) - front() * STEP * Math.PI / 180;
+      if (camPos) {   /* turn the ring so the front card faces you */
+        xrTarget = group.rotation.y = Math.atan2(camPos.x - group.position.x, camPos.z - group.position.z) - front() * STEP * Math.PI / 180;
       }
       group.visible = true; reticle.visible = false; placed = true;
       statusEl.textContent = "Placed. Walk around it";
