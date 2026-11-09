@@ -39,8 +39,7 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
   position:absolute;left:calc(var(--cw) / -2);top:0;width:var(--cw);
   display:flex;flex-direction:column;gap:9px;padding:12px;border-radius:20px;
   border:1px solid rgba(255,255,255,.28);
-  background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,255,255,.05) 60%);
-  backdrop-filter:blur(12px) saturate(1.3);-webkit-backdrop-filter:blur(12px) saturate(1.3);
+  background:linear-gradient(135deg,#2a211e,#14100e 70%);
   box-shadow:0 22px 60px rgba(0,0,0,.5);
   backface-visibility:hidden;-webkit-backface-visibility:hidden;
   transition:border-color .25s,box-shadow .25s;
@@ -53,7 +52,9 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
 .card .award{position:absolute;top:20px;right:20px;font-size:10px;letter-spacing:.08em;background:rgba(11,9,8,.75);border:1px solid var(--line);padding:4px 9px;border-radius:100px}
 
 /* video view */
-#lb{position:fixed;inset:0;z-index:150;display:none;flex-direction:column;align-items:center;justify-content:center;padding:70px 16px 70px;background:rgba(11,9,8,.93);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#lb{position:fixed;inset:0;z-index:150;display:none;flex-direction:column;align-items:center;justify-content:center;padding:70px 16px 70px;background:rgba(11,9,8,.96)}
+.back{position:fixed;top:60px;left:16px;z-index:160;border:1px solid var(--line);background:rgba(22,17,16,.9);color:var(--cream);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:9px 16px;border-radius:100px;display:none}
+#lb.open ~ .back{display:block}
 #lb.open{display:flex}
 .lb-in{width:min(900px,100%);transform-origin:50% 50%;transition:transform .2s ease-out}
 .lb-title{font-family:var(--display);font-size:12px;margin-bottom:12px;text-align:center}
@@ -117,6 +118,7 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
   </div>
   <div class="lb-nav">Pinch to go back · swipe left or right for next or previous</div>
 </div>
+<button class="back" id="backBtn">← Back to the space</button>
 
 <div id="guide" role="dialog" aria-modal="true">
   <div class="guide-box">
@@ -214,10 +216,10 @@ function render(){
 /* ease the ring, tilt and zoom toward their targets each frame */
 function ease(){
   if (!dragging) {
-    rot += (target - rot) * .16;
-    tilt += (tiltTarget - tilt) * .16;
+    rot += (target - rot) * .25;
+    tilt += (tiltTarget - tilt) * .25;
   }
-  camZ += (camTarget - camZ) * .18;
+  camZ += (camTarget - camZ) * .3;
   render();
 }
 
@@ -319,7 +321,7 @@ function setDot(x, y, pinching){
 async function startCamera(){
   try {
     var stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
     });
     video.srcObject = stream;
     await video.play();
@@ -374,12 +376,14 @@ function handleHand(lm){
 
   /* pinch: needs ~4 steady frames to count, and fires once per press, so jitter does not open videos */
   /* a pinch has thumb and index touching while the middle finger stays up; a closed fist does not count */
-  var pinching = pinchFired ? thumbIndex < .42 : (thumbIndex < .25 && middleUp);
+  /* inside a video, any pinch goes back (looser, so it is easy to hit); on the ring it must be a clean pinch */
+  var pinchOn = view === "video" ? thumbIndex < .32 : (thumbIndex < .25 && middleUp);
+  var pinching = pinchFired ? thumbIndex < .42 : pinchOn;
   setDot(dotX, dotY, pinching);
   if (pinching) {
     pinchFrames++;
     var settled = view === "video" || Math.abs(rot - target) < 3;
-    if (!pinchFired && pinchFrames >= 4 && settled && performance.now() - lastSelect > 1000 && performance.now() - lastOpen > 900) {
+    if (!pinchFired && pinchFrames >= 3 && settled && performance.now() - lastSelect > 700 && performance.now() - lastOpen > 600) {
       pinchFired = true; lastSelect = performance.now();
       if (view === "video") { closeVideo(); flash("Back to the space"); }
       else { openProject(front()); }
@@ -393,7 +397,7 @@ function handleHand(lm){
     var mx = (lm[8].x + lm[12].x) / 2 * innerWidth, my = (lm[8].y + lm[12].y) / 2 * innerHeight;
     if (!swipeAnchor) swipeAnchor = { x: mx, y: my };
     var dx = mx - swipeAnchor.x, dy = my - swipeAnchor.y;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) > 70 && performance.now() - lastSwipe > 500) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 50 && performance.now() - lastSwipe > 350) {
       lastSwipe = performance.now();
       if (Math.abs(dx) > Math.abs(dy)) { turn(dx < 0 ? 1 : -1); flash(dx < 0 ? "Swipe ←" : "Swipe →"); }
       else { tiltBy(dy < 0 ? 8 : -8); flash(dy < 0 ? "Swipe ↑" : "Swipe ↓"); }
@@ -427,6 +431,7 @@ var hintEl = document.getElementById("hint");
 /* guide */
 $("guideBtn").addEventListener("click", function(){ guide.classList.add("open"); });
 $("guideClose").addEventListener("click", function(){ guide.classList.remove("open"); });
+$("backBtn").addEventListener("click", closeVideo);
 guide.classList.add("open");
 $("lb").addEventListener("click", function(e){ if (e.target === lb) closeVideo(); });
 window.addEventListener("keydown", function(e){
