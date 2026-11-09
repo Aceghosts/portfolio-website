@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Creative Vault · AR · AIbbas</title>
+<meta name="description" content="Play with Abbas Mustafa's AI campaign videos in augmented reality, with your camera and hand gestures.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:'Akira Expanded';src:url('../fonts/AkiraExpanded.otf') format('opentype');font-display:swap}
+:root{--bg:#0B0908;--cream:#F4EDE4;--muted:#9A8E85;--ember:#FF5A1F;--amber:#FFB35C;--line:rgba(244,237,228,.14);--display:'Akira Expanded',sans-serif;--body:'Montserrat',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--cream);font-family:var(--body);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+button{font-family:inherit;cursor:pointer}
+
+/* camera feed behind everything, mirrored like a mirror */
+#cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:0;opacity:0;transition:opacity .6s}
+#cam.on{opacity:1}
+.veil{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at center,rgba(11,9,8,.35),rgba(11,9,8,.82) 75%)}
+body.no-cam .veil{background:radial-gradient(ellipse at center,rgba(255,90,31,.12),rgba(11,9,8,.96) 70%)}
+
+/* top bar */
+.top{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 20px;background:linear-gradient(rgba(11,9,8,.8),transparent)}
+.top a,.top .status{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.top a:hover{color:var(--cream)}
+.title{font-family:var(--display);font-size:13px;letter-spacing:.04em}
+.title span{color:var(--ember)}
+.status{text-align:right;max-width:55%}
+.hint{position:fixed;left:0;right:0;bottom:0;z-index:50;text-align:center;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:26px 16px 14px;line-height:1.8;background:linear-gradient(transparent,rgba(11,9,8,.92) 45%);pointer-events:none}
+
+/* stage: pan + zoom target */
+#stage{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;transform-origin:50% 50%;will-change:transform}
+#grid{
+  display:grid;grid-template-columns:repeat(4,minmax(180px,220px));gap:22px;
+  padding:90px 20px 70px;
+}
+@media (max-width:900px){#grid{grid-template-columns:repeat(2,minmax(150px,1fr));gap:14px;padding:80px 14px 70px}}
+
+.card{
+  position:relative;display:flex;flex-direction:column;gap:8px;
+  border-radius:18px;padding:12px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.26);
+  background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 60%);
+  backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
+  box-shadow:0 18px 50px rgba(0,0,0,.45);
+  transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease;
+}
+.card.hover{border-color:var(--amber);transform:translateY(-4px) scale(1.04);box-shadow:0 22px 60px rgba(0,0,0,.5),0 0 40px rgba(255,90,31,.35)}
+.card .art{width:100%;aspect-ratio:16/9;border-radius:12px;background-size:cover;background-position:center;border:1px solid rgba(255,255,255,.2)}
+.card b{font-family:var(--display);font-weight:400;font-size:11px;letter-spacing:.02em;line-height:1.4}
+.card i{font-style:normal;font-size:11px;line-height:1.5;color:rgba(244,237,228,.7)}
+.card .badge{position:absolute;top:18px;right:18px;font-size:10px;letter-spacing:.1em;background:rgba(11,9,8,.7);border:1px solid var(--line);padding:4px 9px;border-radius:100px}
+
+/* gesture cursor: index fingertip */
+.cursor{
+  position:fixed;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;
+  border:2px solid var(--amber);background:rgba(255,90,31,.18);
+  pointer-events:none;z-index:200;display:none;transition:background .2s,transform .1s;
+}
+.cursor.on{display:block}
+.cursor.pinch{background:var(--ember);transform:scale(.7)}
+.cursor .ring{position:absolute;inset:-7px;border-radius:50%;border:3px solid var(--ember);opacity:0}
+.cursor .dwell{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(var(--ember) calc(var(--p,0)*1%),transparent 0)}
+
+/* video overlay */
+#lb{position:fixed;inset:0;z-index:150;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,9,8,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#lb.open{display:flex}
+.lb-in{width:min(900px,100%)}
+.lb-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.lb-title{font-family:var(--display);font-size:13px}
+.btn-x{width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:rgba(22,17,16,.8);color:var(--cream);font-size:16px}
+.frame{width:100%;aspect-ratio:16/9;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#000}
+.frame.tall{width:min(340px,80vw);margin:0 auto;aspect-ratio:9/16}
+.frame iframe{width:100%;height:100%;border:0;display:block}
+.reels{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.reel{background:none;border:none;color:var(--cream);display:flex;flex-direction:column;gap:8px;font-size:12px}
+.reel .t{aspect-ratio:9/16;border-radius:14px;background-size:cover;background-position:center;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:20px;color:#1A0C05;text-shadow:0 0 8px #000}
+.reel .t span{width:46px;height:46px;border-radius:50%;background:linear-gradient(120deg,var(--ember),var(--amber));display:flex;align-items:center;justify-content:center}
+@media (max-width:620px){.reels{grid-template-columns:repeat(2,1fr)}}
+.lb-hint{margin-top:12px;text-align:center;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+</style>
+</head>
+<body class="no-cam">
+
+<video id="cam" autoplay muted playsinline></video>
+<div class="veil"></div>
+
+<div class="top">
+  <a href="../#work">← Portfolio</a>
+  <div class="title">Creative Vault <span>· AR</span></div>
+  <div class="status" id="status">Starting</div>
+</div>
+
+<div id="stage">
+  <div id="grid"></div>
+</div>
+
+<div class="hint" id="hint">Point with your index finger, hold still on a card to open it · pinch and drag to move · two hands to zoom</div>
+
+<div class="cursor" id="cursor"><div class="dwell" id="dwell"></div></div>
+
+<div id="lb">
+  <div class="lb-in">
+    <div class="lb-head">
+      <div class="lb-title" id="lbTitle"></div>
+      <button class="btn-x ar-hit" id="lbClose" aria-label="Close">✕</button>
+    </div>
+    <div id="lbBody"></div>
+    <div class="lb-hint">Hold your finger on ✕ to close</div>
+  </div>
+</div>
+
+<script type="module">
+import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm";
+
+/* ---------- campaign videos (same list as the portfolio's Creative Vault) ---------- */
+var PROJECTS = [
+  { t:"AI Porsche DVC", h:"A Porsche cinematic, directed by AI in 72 hours.", img:"../images/thumbnail.jpg", link:"https://www.behance.net/gallery/230074723/Ai-Porsche-Ad" },
+  { t:"Rolex: Redefined in 3D", h:"Luxury, reimagined frame by frame in 3D.", v:"https://youtu.be/d9J7y7pA9lQ", img:"../images/rolex.jpg" },
+  { t:"Capri Deo Men", h:"Every frame. Every beat. Pure AI.", v:"https://youtu.be/K1Lq9BuCtPQ" },
+  { t:"PSO MD Farewell", h:"One photo. One legacy. One cinematic farewell.", v:"https://youtu.be/QMEF1p7SC0w" },
+  { t:"Hype AI Asset", h:"15 seconds of pure product obsession.", v:"https://youtube.com/shorts/riG3K2Flsu0" },
+  { t:"Itel Nigeria DVC", h:"Full AI production before AI was mainstream.", v:"https://youtu.be/PekyYtp7OD8" },
+  { t:"Krone Fresh Start", h:"A fragrance deserves a cinematic entrance.", v:"https://youtube.com/shorts/SX1Cxiu7-Lg" },
+  { t:"Krone Body Wash Teaser", h:"2026 AI. Premium results.", v:"https://youtube.com/shorts/KgAnlUt_wDg" },
+  { t:"PSO Deo MAX", h:"Minimum effort. Maximum impact.", v:"https://youtube.com/shorts/k9eFJdb0Seg" },
+  { t:"PSO Journey", h:"3 days. 1 story. Played 3 times in the boardroom.", v:"https://youtu.be/QQenfVkfMt4" },
+  { t:"itel S26 Ultra", h:"Pakistan Digital Award winner. Four reels inside.", award:true,
+    vlist:[
+      {label:"Launch Reel",   url:"https://www.youtube.com/shorts/zYdANOdUdFQ"},
+      {label:"All-Day Power", url:"https://www.youtube.com/shorts/MyyzUjJgXOU"},
+      {label:"Design Reel",   url:"https://www.youtube.com/shorts/bsXbizF7AB0"},
+      {label:"AI Feature",    url:"https://www.youtube.com/shorts/bo_l_FqRUpQ"}
+    ] }
+];
+
+var GRAD = ["linear-gradient(150deg,#FF5A1F,#7A2408)","linear-gradient(150deg,#FFB35C,#FF5A1F)","linear-gradient(150deg,#B8451A,#1E0B04)"];
+var $ = function(id){ return document.getElementById(id); };
+var grid = $("grid"), stage = $("stage"), cursor = $("cursor"), dwellEl = $("dwell"), statusEl = $("status");
+var lb = $("lb"), lbBody = $("lbBody"), lbTitle = $("lbTitle");
+
+function ytId(u){ var m=(u||"").match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]+)/); return m?m[1]:null; }
+function thumbOf(p){
+  if (p.img) return p.img;
+  var src = p.v || (p.vlist && p.vlist[0].url) || "";
+  var id = ytId(src);
+  return id ? "https://img.youtube.com/vi/"+id+"/hqdefault.jpg" : "";
+}
+
+/* build cards: every card is an .ar-hit target (gesture or mouse/touch can press it) */
+PROJECTS.forEach(function(p, i){
+  var el = document.createElement("div");
+  el.className = "card ar-hit";
+  el.innerHTML = '<span class="art" style="background-image:url('+thumbOf(p)+'),'+GRAD[i%GRAD.length]+'"></span>' +
+    (p.award ? '<span class="badge">🏆 Award</span>' : '') +
+    '<b>'+p.t+'</b><i>'+p.h+'</i>';
+  el.addEventListener("click", function(){ openVideo(p); });
+  grid.appendChild(el);
+});
+
+function openVideo(p){
+  lbTitle.textContent = p.t;
+  lbBody.innerHTML = "";
+  if (p.vlist) {
+    var wrap = document.createElement("div"); wrap.className = "reels";
+    p.vlist.forEach(function(r){
+      var b = document.createElement("button"); b.className = "reel ar-hit";
+      b.innerHTML = '<span class="t" style="background-image:url(https://img.youtube.com/vi/'+ytId(r.url)+'/hqdefault.jpg)"><span>▶</span></span>'+r.label;
+      b.addEventListener("click", function(){ playFrame(r.url, true, r.label); });
+      wrap.appendChild(b);
+    });
+    lbBody.appendChild(wrap);
+  } else if (p.v) {
+    playFrame(p.v, false, p.t);
+  } else if (p.link) {
+    window.open(p.link, "_blank", "noopener,noreferrer");
+    return;
+  }
+  lb.classList.add("open");
+  lbDwellLock = performance.now() + 600;
+}
+function playFrame(url, tall, title){
+  lbTitle.textContent = title;
+  var id = ytId(url);
+  lbBody.innerHTML = '<div class="frame'+(tall?' tall':'')+'"><iframe src="https://www.youtube.com/embed/'+id+'?autoplay=1&rel=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen title="'+title+'"></iframe></div>';
+}
+var lbDwellLock = 0;
+$("lbClose").addEventListener("click", function(){
+  lb.classList.remove("open");
+  lbBody.innerHTML = "";
+});
+
+/* ---------- pointer (mouse/touch) fallback for the stage: drag to pan, wheel to zoom ---------- */
+var zoom = 1, panX = 0, panY = 0;
+function applyStage(){ stage.style.transform = "translate("+panX+"px,"+panY+"px) scale("+zoom+")"; }
+window.addEventListener("wheel", function(e){
+  if (lb.classList.contains("open")) return;
+  zoom = Math.min(2.5, Math.max(.5, zoom * (e.deltaY < 0 ? 1.08 : 1/1.08)));
+  applyStage();
+}, { passive: true });
+var mDown = null;
+document.addEventListener("pointerdown", function(e){
+  if (e.pointerType === "mouse") mDown = { x: e.clientX, y: e.clientY, px: panX, py: panY, moved: false };
+});
+document.addEventListener("pointermove", function(e){
+  if (e.pointerType !== "mouse") return;
+  setCursor(e.clientX, e.clientY, false);
+  if (mDown && (Math.abs(e.clientX-mDown.x) > 6 || Math.abs(e.clientY-mDown.y) > 6)) {
+    mDown.moved = true;
+    panX = mDown.px + (e.clientX - mDown.x); panY = mDown.py + (e.clientY - mDown.y);
+    applyStage();
+  }
+});
+document.addEventListener("pointerup", function(){ mDown = null; });
+
+/* ---------- cursor + hover ---------- */
+var cx = innerWidth/2, cy = innerHeight/2;
+var hoverEl = null, dwellT = 0, dwellFired = false;
+function setCursor(x, y, fromHand){
+  cursor.classList.add("on");
+  cursor.style.transform = "translate("+x+"px,"+y+"px)";
+  cx = x; cy = y;
+  var under = document.elementFromPoint(x, y);
+  var hit = under && under.closest ? under.closest(".ar-hit") : null;
+  if (hit !== hoverEl) {
+    if (hoverEl) hoverEl.classList.remove("hover");
+    hoverEl = hit; dwellT = 0; dwellFired = false;
+    if (hit) hit.classList.add("hover");
+  }
+}
+function setDwell(dt){
+  if (!hoverEl || lb.classList.contains("open") && !hoverEl.closest("#lb")) { dwellT = 0; dwellEl.style.setProperty("--p", 0); return; }
+  if (dwellFired) return;
+  dwellT += dt;
+  dwellEl.style.setProperty("--p", Math.min(100, dwellT/1.0*100));
+  if (dwellT >= 1.0) {
+    dwellFired = true;
+    if (performance.now() > lbDwellLock) hoverEl.click();
+  }
+}
+
+/* ---------- hand tracking ---------- */
+var video = document.getElementById("cam");
+var hands = null, lastVideoTime = -1;
+var pinchState = null;      /* {x,y,startX,startY,onCard,moved} for one hand */
+var zoomBase = null;
+var smooth = {x:null,y:null};
+var lastT = performance.now();
+
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+
+async function startCamera(){
+  try {
+    var stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+    video.classList.add("on");
+    document.body.classList.remove("no-cam");
+    return true;
+  } catch (err) {
+    statusEl.textContent = "Camera off. Use mouse or touch";
+    return false;
+  }
+}
+
+async function startTracking(){
+  statusEl.textContent = "Loading hand tracking";
+  var vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  hands = await HandLandmarker.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: "hand_landmarker.task", delegate: "GPU" },
+    runningMode: "VIDEO", numHands: 2
+  });
+  statusEl.textContent = "Hand tracking on";
+  requestAnimationFrame(loop);
+}
+
+function loop(now){
+  var dt = Math.min(.1, (now - lastT) / 1000); lastT = now;
+  if (hands && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    var res = hands.detectForVideo(video, now);
+    handleHands(res.landmarks || []);
+  } else if (!hands || !video.srcObject) {
+    /* no camera: nothing to do */
+  }
+  setDwell(dt);
+  requestAnimationFrame(loop);
+}
+
+function handleHands(list){
+  if (!list.length) {
+    cursor.classList.remove("pinch");
+    if (pinchState) pinchState = null;
+    zoomBase = null;
+    return;
+  }
+  /* mirror x so movement feels like a mirror */
+  var H = list.map(function(lm){
+    var tip = { x: 1 - lm[8].x, y: lm[8].y };
+    var thumb = { x: 1 - lm[4].x, y: lm[4].y };
+    var scale = dist(lm[0], lm[9]) || .1;
+    var pinch = dist(lm[4], lm[8]) / scale < .4;
+    return { tip: tip, pinch: pinch };
+  });
+
+  /* index fingertip drives the cursor (smoothed) */
+  var p = H[0].tip;
+  var sx = p.x * innerWidth, sy = p.y * innerHeight;
+  if (smooth.x === null) { smooth.x = sx; smooth.y = sy; }
+  smooth.x += (sx - smooth.x) * .45; smooth.y += (sy - smooth.y) * .45;
+  setCursor(smooth.x, smooth.y, true);
+  cursor.classList.toggle("pinch", H[0].pinch);
+
+  /* two hands: spread the index fingers to zoom */
+  if (H.length === 2) {
+    var d = dist(H[0].tip, H[1].tip);
+    if (!zoomBase) zoomBase = { d: d, z: zoom };
+    zoom = Math.min(2.5, Math.max(.5, zoomBase.z * (d / Math.max(zoomBase.d, .02))));
+    applyStage();
+    pinchState = null;
+    return;
+  }
+  zoomBase = null;
+
+  /* one hand pinch: drag the stage, or click the card under the cursor on release */
+  if (H[0].pinch) {
+    if (!pinchState) {
+      pinchState = { x: p.x, y: p.y, sx: p.x, sy: p.y, onCard: !!hoverEl, moved: false, hit: hoverEl };
+    } else {
+      var dx = (p.x - pinchState.x) * innerWidth, dy = (p.y - pinchState.y) * innerHeight;
+      if (Math.abs(p.x - pinchState.sx) * innerWidth > 10 || Math.abs(p.y - pinchState.sy) * innerHeight > 10) pinchState.moved = true;
+      if (pinchState.moved && !pinchState.onCard) {
+        panX += dx; panY += dy; applyStage();
+      }
+      pinchState.x = p.x; pinchState.y = p.y;
+    }
+  } else if (pinchState) {
+    if (!pinchState.moved && pinchState.hit && pinchState.hit === hoverEl) {
+      pinchState.hit.click();
+    }
+    pinchState = null;
+  }
+}
+
+/* ---------- start up ---------- */
+(async function(){
+  var ok = await startCamera();
+  if (ok) {
+    try { await startTracking(); }
+    catch (e) { statusEl.textContent = "Hand tracking unavailable. Use mouse or touch"; }
+  } else {
+    document.getElementById("hint").textContent = "Drag to move · scroll to zoom · tap a card to watch";
+  }
+  if (!ok) cursor.classList.remove("on");
+})();
+
+window.addEventListener("keydown", function(e){ if (e.key === "Escape") $("lbClose").click(); });
+</script>
+</body>
+</html>
