@@ -368,14 +368,20 @@ async function startTracking(){
 }
 
 function loop(now){
-  if (hands && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
-    lastVideoTime = video.currentTime;
-    var t0 = performance.now();
-    var res = hands.detectForVideo(video, now);
-    detectShown = performance.now() - t0;
-    handleHand(res.landmarks && res.landmarks[0]);
+  /* one bad frame must not stop the loop: report it and keep going */
+  try {
+    if (hands && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+      lastVideoTime = video.currentTime;
+      var t0 = performance.now();
+      var res = hands.detectForVideo(video, now);
+      detectShown = performance.now() - t0;
+      handleHand(res.landmarks && res.landmarks[0]);
+    }
+    updateDebug(now);
+  } catch (err) {
+    statusEl.textContent = "Error: " + (err && err.message ? err.message.slice(0, 80) : String(err));
+    console.error(err);
   }
-  updateDebug(now);
   ease();
   requestAnimationFrame(loop);
 }
