@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 @font-face{font-family:'Akira Expanded';src:url('../fonts/AkiraExpanded.otf') format('opentype');font-display:swap}
-:root{--bg:#0B0908;--cream:#F4EDE4;--muted:#9A8E85;--ember:#FF5A1F;--amber:#FFB35C;--line:rgba(244,237,228,.16);--display:'Akira Expanded',sans-serif;--body:'Montserrat',sans-serif;--cw:min(66vw,290px)}
+:root{--bg:#0B0908;--cream:#F4EDE4;--muted:#9A8E85;--ember:#FF5A1F;--amber:#FFB35C;--line:rgba(244,237,228,.16);--display:'Akira Expanded',sans-serif;--body:'Montserrat',sans-serif;--cw:min(58vw,240px)}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--cream);font-family:var(--body);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;touch-action:none}
@@ -32,7 +32,7 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
 .chip{border:1px solid var(--line);background:rgba(22,17,16,.7);color:var(--cream);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:8px 14px;border-radius:100px}
 
 /* 3D space: perspective -> camera (zoom, tilt) -> ring (turns) -> cards */
-#space{position:fixed;inset:0;z-index:10;perspective:1000px;perspective-origin:50% 45%}
+#space{position:fixed;inset:0;z-index:10;perspective:3200px;perspective-origin:50% 45%}
 #camera{position:absolute;inset:0;transform-style:preserve-3d}
 #ring{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d}
 .card{
@@ -173,8 +173,9 @@ function thumbOf(p){
 
 /* ---------- ring of cards ---------- */
 /* radius so neighbouring cards just touch: chord = 2R sin(STEP/2) ~ card width + gap */
-var cardPx = Math.min(window.innerWidth * .66, 290);
-var R = Math.max(340, (cardPx * 1.12) / (2 * Math.sin(Math.PI * STEP / 360)));
+var cardPx = Math.min(window.innerWidth * .58, 240);
+var R = Math.max(300, (cardPx * 1.05) / (2 * Math.sin(Math.PI * STEP / 360)));
+var cameraOn = false;   /* once hand tracking runs, only pinch opens videos (taps just turn the ring) */
 var cards = [];
 PROJECTS.forEach(function(p, i){
   var el = document.createElement("div");
@@ -184,7 +185,8 @@ PROJECTS.forEach(function(p, i){
     (p.award ? '<span class="award">🏆 Award</span>' : '') + '<b>'+p.t+'</b><i>'+p.h+'</i>';
   el.addEventListener("click", function(){
     if (dragMoved) return;
-    if (i === front()) openProject(i); else { focus = i; target = -focus * STEP; }
+    if (i !== front()) { focus = i; target = -focus * STEP; return; }
+    if (!cameraOn) openProject(i);
   });
   ring.appendChild(el);
   cards.push(el);
@@ -339,6 +341,7 @@ async function startTracking(){
     minHandDetectionConfidence: .7, minHandPresenceConfidence: .7, minTrackingConfidence: .6
   });
   statusEl.textContent = "Back camera on";
+  cameraOn = true;
 }
 
 function loop(now){
@@ -370,7 +373,8 @@ function handleHand(lm){
   dotX += (sx - dotX) * .4; dotY += (sy - dotY) * .4;
 
   /* pinch: needs ~4 steady frames to count, and fires once per press, so jitter does not open videos */
-  var pinching = pinchFired ? thumbIndex < .42 : thumbIndex < .25;
+  /* a pinch has thumb and index touching while the middle finger stays up; a closed fist does not count */
+  var pinching = pinchFired ? thumbIndex < .42 : (thumbIndex < .25 && middleUp);
   setDot(dotX, dotY, pinching);
   if (pinching) {
     pinchFrames++;
