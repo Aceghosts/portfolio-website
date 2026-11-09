@@ -110,24 +110,24 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
   </div>
 </div>
 
-<div class="hint" id="hint">Swipe to turn · pinch to open the front video</div>
+<div class="hint" id="hint">Pinch and swipe to turn · quick pinch opens the front video</div>
 
 <div id="lb">
   <div class="lb-in" id="lbIn">
     <div class="lb-title" id="lbTitle"></div>
     <div id="lbBody"></div>
   </div>
-  <div class="lb-nav">Pinch to go back · swipe left or right for next or previous</div>
+  <div class="lb-nav">Quick pinch to go back · pinch and swipe left or right for next or previous</div>
 </div>
 <button class="back" id="backBtn">← Back to the space</button>
 
 <div id="guide" role="dialog" aria-modal="true">
   <div class="guide-box">
     <h2>How to use AR</h2>
-    <p>Hold your phone so the back camera sees your hand. Videos float in a 3D ring around you.</p>
-    <div class="g-row"><div class="g-ico">↔</div><div><b>Two fingers together, swipe left or right</b><span>Turn the ring to the next or previous video.</span></div></div>
-    <div class="g-row"><div class="g-ico">↕</div><div><b>Two fingers together, swipe up or down</b><span>Tilt the ring to see it from above or below.</span></div></div>
-    <div class="g-row"><div class="g-ico">👌</div><div><b>Pinch thumb and index</b><span>Open the video at the front. Pinch again to go back.</span></div></div>
+    <p>Hold your phone so the back camera sees your hand. Videos float in a 3D ring around you and stay in place as you turn.</p>
+    <div class="g-row"><div class="g-ico">↔</div><div><b>Pinch, then swipe left or right</b><span>Turn the ring to the next or previous video.</span></div></div>
+    <div class="g-row"><div class="g-ico">↕</div><div><b>Pinch, then swipe up or down</b><span>Tilt the ring to see it from above or below.</span></div></div>
+    <div class="g-row"><div class="g-ico">👌</div><div><b>Quick pinch</b><span>Open the video at the front. Quick pinch again to go back.</span></div></div>
     <div class="g-row"><div class="g-ico">⤢</div><div><b>Thumb and index, open and close</b><span>Spread them apart to move into the space, bring them together to move out.</span></div></div>
     <button class="chip" id="guideClose">Got it</button>
   </div>
@@ -212,11 +212,32 @@ var camZ = 0, camTarget = 0;            /* zoom: move into / out of the space */
 function mod(a, n){ return ((a % n) + n) % n; }
 function front(){ return mod(focus, N); }
 
+/* phone orientation: the ring is counter-rotated by the phone's yaw and pitch so it stays put in the room */
+var devYaw = 0, devPitch = 0, yawView = 0, pitchView = 0, lastAlpha = null, pitchBase = null;
+var YAW_SIGN = 1, PITCH_SIGN = -1;   /* ponytail: sign knobs; flip if the ring turns with the phone instead of against it */
+function onOrient(e){
+  if (e.alpha == null || e.beta == null) return;
+  if (lastAlpha === null) { lastAlpha = e.alpha; pitchBase = e.beta; }
+  var d = e.alpha - lastAlpha; if (d > 180) d -= 360; if (d < -180) d += 360;   /* unwrap the 0..360 jump */
+  devYaw += d; lastAlpha = e.alpha;
+  devPitch = e.beta - pitchBase;
+}
+function startOrientation(){
+  if (typeof DeviceOrientationEvent === "undefined") return;
+  /* listen first: on most browsers the event just flows. iOS only fires it after a permission call made from a user gesture */
+  window.addEventListener("deviceorientation", onOrient);
+  if (typeof DeviceOrientationEvent.requestPermission === "function") {
+    DeviceOrientationEvent.requestPermission().catch(function(){});
+  }
+}
+
 function render(){
+  yawView += (devYaw - yawView) * .35; pitchView += (devPitch - pitchView) * .35;
+  var ry = rot + YAW_SIGN * yawView, rx = tilt + PITCH_SIGN * pitchView;
   camera.style.transform = "translate3d(0,0," + camZ.toFixed(1) + "px)";
-  ring.style.transform = "rotateX(" + tilt.toFixed(2) + "deg) rotateY(" + rot.toFixed(2) + "deg)";
+  ring.style.transform = "rotateX(" + rx.toFixed(2) + "deg) rotateY(" + ry.toFixed(2) + "deg)";
   for (var i = 0; i < N; i++) {
-    var a = (i * STEP + rot) * Math.PI / 180;
+    var a = (i * STEP + ry) * Math.PI / 180;
     var c = Math.cos(a);
     cards[i].style.opacity = (.3 + .7 * (c + 1) / 2).toFixed(3);
     cards[i].classList.toggle("front", i === front() && view === "space");
@@ -318,8 +339,8 @@ window.addEventListener("wheel", function(e){
 /* ---------- hand tracking ---------- */
 var hands = null, lastVideoTime = -1;
 var dotX = null, dotY = null;
-var pinchFrames = 0, pinchFired = false, lastSelect = 0;
-var swipeAnchor = null, lastSwipe = 0, zoomBase = null;
+var pinchFrames = 0, pinchActive = false, pinchStart = 0, pinchAnchor = null, pinchDragged = false, lastSelect = 0;
+var lastSwipe = 0, zoomBase = null;
 var lastMetrics = null, frameMs = 0, detectMs = 0, fpsCount = 0, fpsStart = performance.now(), fpsShown = 0, detectShown = 0;
 var debugOn = false;
 var dbg = document.getElementById("dbgOut");
@@ -331,7 +352,7 @@ function updateDebug(now){
   dbg.textContent = "fps " + fpsShown + " · detect " + detectShown.toFixed(0) + "ms" +
     "\npinch " + (m.thumbIndex != null ? m.thumbIndex.toFixed(2) : "-") +
     " · together " + (m.together != null ? m.together.toFixed(2) : "-") +
-    "\nindex up " + m.indexUp + " · middle up " + m.middleUp +
+    "\nyaw " + yawView.toFixed(0) + " · pitch " + pitchView.toFixed(0) +
     "\nview " + view + " · focus " + focus + " · zoom " + camZ.toFixed(0);
 }
 
@@ -405,7 +426,7 @@ function loop(now){
 function handleHand(lm){
   if (!lm) {
     cursor.classList.remove("on");
-    pinchFrames = 0; pinchFired = false; swipeAnchor = null; zoomBase = null;
+    pinchFrames = 0; pinchActive = false; pinchAnchor = null; zoomBase = null;
     return;
   }
   var s = dist(lm[0], lm[9]) || .1;
@@ -420,42 +441,39 @@ function handleHand(lm){
   if (dotX === null) { dotX = sx; dotY = sy; }
   dotX += (sx - dotX) * .4; dotY += (sy - dotY) * .4;
 
-  /* pinch: needs ~4 steady frames to count, and fires once per press, so jitter does not open videos */
-  /* a pinch has thumb and index touching while the middle finger stays up; a closed fist does not count */
-  /* inside a video, any pinch goes back (looser, so it is easy to hit); on the ring it must be a clean pinch */
-  var pinchOn = thumbIndex < .3;
-  var pinching = pinchFired ? thumbIndex < .42 : pinchOn;
+  /* pinch (thumb and index touching) is the one control:
+     pinch and swipe left/right turns the ring, up/down tilts it;
+     a short pinch with no swipe opens the front video, or goes back from a video.
+     The select fires on release, so a swipe never opens a video by accident. */
+  var now = performance.now();
+  var pinching = pinchActive ? thumbIndex < .42 : thumbIndex < .3;   /* hysteresis so a shaky hand does not flicker */
   setDot(dotX, dotY, pinching);
+  var px = (lm[4].x + lm[8].x) / 2 * innerWidth, py = (lm[4].y + lm[8].y) / 2 * innerHeight;
   if (pinching) {
     pinchFrames++;
-    var settled = view === "video" || Math.abs(rot - target) < 10;
-    if (!pinchFired && pinchFrames >= 3 && settled && performance.now() - lastSelect > 700 && performance.now() - lastOpen > 600) {
-      pinchFired = true; lastSelect = performance.now();
-      if (view === "video") { closeVideo(); flash("Back to the space"); }
-      else if (PROJECTS[front()].v || PROJECTS[front()].vlist) { openProject(front()); }
-      else { flash("No video here. Swipe to another card"); }
-    }
-  } else {
-    pinchFrames = 0; pinchFired = false;
-  }
-
-  /* two fingers together: swipe left/right turns the ring, up/down tilts it */
-  if (!pinching && together < .5 && indexUp && middleUp) {
-    var mx = (lm[8].x + lm[12].x) / 2 * innerWidth, my = (lm[8].y + lm[12].y) / 2 * innerHeight;
-    if (!swipeAnchor) swipeAnchor = { x: mx, y: my };
-    var dx = mx - swipeAnchor.x, dy = my - swipeAnchor.y;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) > 50 && performance.now() - lastSwipe > 350) {
-      lastSwipe = performance.now();
+    if (!pinchActive) { pinchActive = true; pinchStart = now; pinchAnchor = { x: px, y: py }; pinchDragged = false; }
+    var dx = px - pinchAnchor.x, dy = py - pinchAnchor.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 50 && now - lastSwipe > 350) {
+      lastSwipe = now; pinchDragged = true;
       if (Math.abs(dx) > Math.abs(dy)) { turn(dx < 0 ? 1 : -1); flash(dx < 0 ? "Swipe ←" : "Swipe →"); }
       else { tiltBy(dy < 0 ? 8 : -8); flash(dy < 0 ? "Swipe ↑" : "Swipe ↓"); }
-      swipeAnchor = { x: mx, y: my };
+      pinchAnchor = { x: px, y: py };
     }
   } else {
-    swipeAnchor = null;
+    if (pinchActive) {
+      var settled = view === "video" || Math.abs(rot - target) < 10;
+      if (!pinchDragged && pinchFrames >= 3 && now - pinchStart < 900 && settled && now - lastSelect > 700 && now - lastOpen > 600) {
+        lastSelect = now;
+        if (view === "video") { closeVideo(); flash("Back to the space"); }
+        else if (PROJECTS[front()].v || PROJECTS[front()].vlist) { openProject(front()); }
+        else { flash("No video here. Pinch and swipe to another card"); }
+      }
+    }
+    pinchActive = false; pinchFrames = 0; pinchAnchor = null;
   }
 
   /* thumb and index apart: move into (open) or out of (close) the space */
-  if (!pinching && thumbIndex > .55 && !(indexUp && middleUp && together < .5)) {
+  if (!pinching && thumbIndex > .55) {
     if (!zoomBase) zoomBase = { r: thumbIndex, z: camTarget };
     zoomTo(zoomBase.z + (thumbIndex - zoomBase.r) * 500);
   } else {
@@ -481,7 +499,7 @@ var hintEl = document.getElementById("hint");
 
 /* guide */
 $("guideBtn").addEventListener("click", function(){ guide.classList.add("open"); });
-$("guideClose").addEventListener("click", function(){ guide.classList.remove("open"); });
+$("guideClose").addEventListener("click", function(){ guide.classList.remove("open"); startOrientation(); });
 $("backBtn").addEventListener("click", closeVideo);
 guide.classList.add("open");
 $("lb").addEventListener("click", function(e){ if (e.target === lb) closeVideo(); });
