@@ -98,7 +98,7 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
   <a href="../#work">← Portfolio</a>
   <div class="title">Creative Vault <span>· AR</span></div>
   <div class="top-r">
-    <div class="status" id="status">Starting</div>
+    <div class="status" id="status">Starting…</div>
     <button class="chip" id="guideBtn">Guide</button>
     <button class="chip" id="dbgBtn">Debug</button>
   </div>
@@ -138,7 +138,6 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
 <div class="flash" id="flash"></div>
 
 <script type="module">
-import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm";
 
 /* campaign videos: same list as the portfolio's Creative Vault */
 var PROJECTS = [
@@ -336,22 +335,30 @@ function setDot(x, y, pinching){
 
 async function startCamera(){
   try {
-    var stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false
-    });
+    statusEl.textContent = "Allow camera access";
+    /* if the browser never answers the permission prompt, stop waiting after 12 seconds */
+    var stream = await Promise.race([
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false
+      }),
+      new Promise(function(_, reject){ setTimeout(function(){ reject(new Error("camera timed out")); }, 12000); })
+    ]);
     video.srcObject = stream;
     await video.play();
     video.classList.add("on");
     document.body.classList.remove("no-cam");
     return true;
   } catch (err) {
-    statusEl.textContent = "Camera off. Use touch or mouse";
+    statusEl.textContent = "Camera blocked. Allow it in browser settings, or use touch";
     return false;
   }
 }
 
 async function startTracking(){
   statusEl.textContent = "Loading hand tracking";
+  /* loaded on demand, so a slow or blocked download never stops the cards from showing */
+  var mp = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm");
+  var FilesetResolver = mp.FilesetResolver, HandLandmarker = mp.HandLandmarker;
   var vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
   var opts = {
     runningMode: "VIDEO", numHands: 1
@@ -457,8 +464,9 @@ var hintEl = document.getElementById("hint");
       statusEl.textContent = "Hand tracking unavailable: " + (e && e.message ? e.message.slice(0, 80) : "unknown error");
       console.error("hand tracking failed", e);
     }
+  } else {
+    cursor.classList.remove("on");
   }
-  if (!ok) cursor.classList.remove("on");
   requestAnimationFrame(loop);
 })();
 
