@@ -83,7 +83,7 @@ export function About() {
               editor into an{" "}
               <span className="text-brand font-semibold">AI production specialist</span>, supported
               by a degree in Media Science. This foundation lets me use AI as a high-level
-              storytelling tool — not a shortcut.
+              storytelling tool, not a shortcut.
             </p>
             <p className="font-body text-white/55 text-sm md:text-base leading-relaxed">
               I focus on turning raw concepts into{" "}
@@ -101,6 +101,7 @@ export function About() {
           >
             {[
               { color: "bg-brand", text: "BSc Media Science · Karachi, Pakistan" },
+              { color: "bg-brand", text: "Pakistan Digital Award Winner" },
               { color: "bg-green-400 animate-pulse", text: "Available for Freelance" },
               { color: "bg-white/20", text: "abbas5253godhra@gmail.com" },
             ].map(({ color, text }) => (
@@ -134,8 +135,8 @@ export function About() {
           <div className="grid grid-cols-3 gap-2 md:gap-6">
             {[
               { target: 5,   suffix: "+", label: "Years\nExperience",   duration: 1800 },
-              { target: 200, suffix: "+", label: "Projects\nCompleted", duration: 2400 },
-              { target: 15,  suffix: "+", label: "Happy\nClients",      duration: 2000 },
+              { target: 13,  suffix: "",  label: "AI\nProductions",     duration: 2400 },
+              { target: 72,  suffix: "h", label: "Fastest\nDelivery",   duration: 2000 },
             ].map(({ target, suffix, label, duration }) => (
               <div key={label} className="text-center px-2">
                 <p

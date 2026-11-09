@@ -109,7 +109,7 @@ export function Skills() {
             transition={{ duration: 0.6, delay: 0.38 }}
             className="font-body text-white/35 text-sm leading-relaxed mt-5 max-w-sm"
           >
-            A blend of technical precision and creative vision — built over 5 years of hands-on production work.
+            A blend of technical precision and creative vision, built over 5 years of hands-on production work.
           </motion.p>
         </div>
 

@@ -9,11 +9,11 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "AIbbas — AI Content Producer",
+  title: "AIbbas · AI Content Producer",
   description:
     "AI Content Producer | Motion Graphics | Editor. From Raw Ideas to Rendered Perfection.",
   openGraph: {
-    title: "AIbbas — AI Content Producer",
+    title: "AIbbas · AI Content Producer",
     description: "From Raw Ideas to Rendered Perfection.",
     type: "website",
   },

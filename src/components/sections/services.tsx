@@ -7,7 +7,7 @@ const services = [
   {
     num: "01",
     title: "AI Content Creation",
-    desc: "Leveraging cutting-edge AI tools to produce compelling visual narratives, from concept to final render — faster than traditional pipelines without sacrificing quality.",
+    desc: "Leveraging cutting-edge AI tools to produce compelling visual narratives, from concept to final render, faster than traditional pipelines without sacrificing quality.",
   },
   {
     num: "02",
@@ -32,7 +32,7 @@ const services = [
   {
     num: "06",
     title: "Social Media Content",
-    desc: "Platform-native short-form content optimised for Reels, TikTok, and YouTube Shorts — scroll-stopping by design.",
+    desc: "Platform-native short-form content optimised for Reels, TikTok, and YouTube Shorts, scroll-stopping by design.",
   },
 ];
 

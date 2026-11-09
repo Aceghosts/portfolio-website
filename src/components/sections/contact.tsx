@@ -76,7 +76,7 @@ export function Contact() {
           >
             <p className="font-body text-white/40 text-base leading-relaxed max-w-sm">
               Have a project in mind? Let&apos;s make something cinematic together.
-              Click below to chat with me directly on WhatsApp — I reply fast.
+              Click below to chat with me directly on WhatsApp. I reply fast.
             </p>
 
             <div className="space-y-2">

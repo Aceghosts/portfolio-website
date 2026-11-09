@@ -24,7 +24,7 @@ const projects: Project[] = [
     title: "AI Porsche DVC",
     tags: ["AI Director", "Post-Production"],
     headline: "A Porsche cinematic, directed by AI in 72 hours.",
-    desc: "A full-scale cinematic for Porsche — conceived, directed, and delivered in 72 hours using an end-to-end AI pipeline. Narrative via ChatGPT, visuals via Kling AI, Runway & Minimax, finished in After Effects.",
+    desc: "A full-scale cinematic for Porsche, conceived, directed, and delivered in 72 hours using an end-to-end AI pipeline. Narrative via ChatGPT, visuals via Kling AI, Runway & Minimax, finished in After Effects.",
     youtubeId: null,
     orientation: "landscape",
     thumbnail: "/thumbnail.jpg",
@@ -46,7 +46,7 @@ const projects: Project[] = [
     title: "Capri Deo Men",
     tags: ["AI DVC", "Brand Film"],
     headline: "Every frame. Every beat. Pure AI.",
-    desc: "A complete DVC produced without a single camera — every visual, every frame and even the jingle was generated using AI tools from scratch.",
+    desc: "A complete DVC produced without a single camera. Every visual, every frame and even the jingle was generated using AI tools from scratch.",
     youtubeId: "K1Lq9BuCtPQ",
     orientation: "landscape",
   },
@@ -64,7 +64,7 @@ const projects: Project[] = [
     title: "Hype AI Asset",
     tags: ["Product Video", "AI Content"],
     headline: "15 seconds of pure product obsession.",
-    desc: "A short-form product video built to stop the scroll — every frame crafted to highlight the beauty of the product, nothing wasted.",
+    desc: "A short-form product video built to stop the scroll. Every frame crafted to highlight the beauty of the product, nothing wasted.",
     youtubeId: "riG3K2Flsu0",
     orientation: "portrait",
   },
@@ -73,7 +73,7 @@ const projects: Project[] = [
     title: "Itel Nigeria DVC",
     tags: ["AI DVC", "International Brand"],
     headline: "Full AI production before AI was mainstream.",
-    desc: "A complete DVC for Itel Nigeria — from storyboard to last frame, built entirely with AI at a time when the industry hadn't caught up yet.",
+    desc: "A complete DVC for Itel Nigeria, from storyboard to last frame, built entirely with AI at a time when the industry hadn't caught up yet.",
     youtubeId: "PekyYtp7OD8",
     orientation: "landscape",
   },
@@ -82,7 +82,7 @@ const projects: Project[] = [
     title: "Krone Fresh Start",
     tags: ["Perfume Teaser", "Social Media"],
     headline: "A fragrance deserves a cinematic entrance.",
-    desc: "A teaser post for Krone's perfume launch — moody, premium and built frame by frame using Kling and Nano Banana.",
+    desc: "A teaser post for Krone's perfume launch. Moody, premium and built frame by frame using Kling and Nano Banana.",
     youtubeId: "SX1Cxiu7-Lg",
     orientation: "portrait",
   },
@@ -91,7 +91,7 @@ const projects: Project[] = [
     title: "Krone Body Wash Teaser",
     tags: ["Product Teaser", "AI Content"],
     headline: "2026 AI. Premium results.",
-    desc: "A body wash teaser built with the most advanced AI tools available today — GPT Image 2 and Nano Banana Pro doing the heavy lifting.",
+    desc: "A body wash teaser built with the most advanced AI tools available today. GPT Image 2 and Nano Banana Pro doing the heavy lifting.",
     youtubeId: "KgAnlUt_wDg",
     orientation: "portrait",
   },
@@ -100,7 +100,7 @@ const projects: Project[] = [
     title: "PSO Deo MAX",
     tags: ["Social Media Content", "Brand"],
     headline: "Minimum effort. Maximum impact.",
-    desc: "A social media post that proves AI doesn't need to be complex to be powerful — built with Kling and Nano Banana, finished in After Effects.",
+    desc: "A social media post that proves AI doesn't need to be complex to be powerful. Built with Kling and Nano Banana, finished in After Effects.",
     youtubeId: "k9eFJdb0Seg",
     orientation: "portrait",
   },
@@ -109,9 +109,28 @@ const projects: Project[] = [
     title: "PSO Journey",
     tags: ["Brand Film", "Corporate"],
     headline: "3 days. 1 story. Played 3 times in the boardroom.",
-    desc: "From storyboard to final cut in 72 hours — frames, audio, jingle and transitions all AI-assisted. The client loved it so much they played it three times back to back.",
+    desc: "From storyboard to final cut in 72 hours. Frames, audio, jingle and transitions all AI-assisted. The client loved it so much they played it three times back to back.",
     youtubeId: "QQenfVkfMt4",
     orientation: "landscape",
+  },
+  {
+    num: "11",
+    title: "itel S26 Ultra",
+    tags: ["Award Winner", "AI Campaign"],
+    headline: "The department's first national trophy.",
+    desc: "A Pakistan Digital Award winning campaign for itel S26 Ultra, produced end to end with AI tools and recognised as the department's first national trophy.",
+    youtubeId: "zYdANOdUdFQ",
+    orientation: "portrait",
+  },
+  {
+    num: "12",
+    title: "Campaign Vault",
+    tags: ["Web App", "AI Tool"],
+    headline: "Award submissions, generated in minutes.",
+    desc: "A campaign library that turns a single case into award-ready submissions for PDA, Dragons of Asia and EFFIE, with PDF, Word and PowerPoint exports.",
+    orientation: "landscape",
+    thumbnail: "/campaign-vault.jpg",
+    link: "https://evaluation-meeting.vercel.app/campaign-vault/",
   },
 ];
 
@@ -330,7 +349,7 @@ function ProjectCard({
               rel="noopener noreferrer"
               className="flex items-center gap-2 font-body text-xs font-semibold tracking-widest uppercase text-brand hover:text-white transition-colors duration-300"
             >
-              View on Behance
+              {project.link.includes("behance") ? "View on Behance" : "View Project"}
               <ArrowUpRight size={13} />
             </a>
           )}
