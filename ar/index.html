@@ -137,6 +137,15 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
 <pre id="dbg" style="display:none;position:fixed;left:8px;bottom:70px;z-index:230;font:11px/1.5 monospace;color:#FFB35C;background:rgba(0,0,0,.7);padding:8px 10px;border-radius:8px;pointer-events:none"></pre>
 <div class="flash" id="flash"></div>
 
+<script>
+/* shows any script error on screen, so a failure is visible even on a phone without a console */
+(function(){
+  function show(msg){ var s = document.getElementById("status"); if (s) s.textContent = "Error: " + String(msg).slice(0, 120); }
+  window.addEventListener("error", function(e){ show(e.message || "script error"); });
+  window.addEventListener("unhandledrejection", function(e){ show((e.reason && e.reason.message) || e.reason || "promise error"); });
+  var s = document.getElementById("status"); if (s) s.textContent = "Page loaded";
+})();
+</script>
 <script type="module">
 
 /* campaign videos: same list as the portfolio's Creative Vault */
