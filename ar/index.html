@@ -353,11 +353,16 @@ async function startCamera(){
 async function startTracking(){
   statusEl.textContent = "Loading hand tracking";
   var vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-  hands = await HandLandmarker.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: "hand_landmarker.task", delegate: "GPU" },
+  var opts = {
     runningMode: "VIDEO", numHands: 1,
     minHandDetectionConfidence: .7, minHandPresenceConfidence: .7, minTrackingConfidence: .6
-  });
+  };
+  /* GPU first; some phones refuse it, so fall back to CPU instead of giving up */
+  try {
+    hands = await HandLandmarker.createFromOptions(vision, Object.assign({ baseOptions: { modelAssetPath: "hand_landmarker.task", delegate: "GPU" } }, opts));
+  } catch (gpuErr) {
+    hands = await HandLandmarker.createFromOptions(vision, Object.assign({ baseOptions: { modelAssetPath: "hand_landmarker.task", delegate: "CPU" } }, opts));
+  }
   statusEl.textContent = "Back camera on";
   cameraOn = true;
 }
@@ -443,7 +448,10 @@ var hintEl = document.getElementById("hint");
   var ok = await startCamera();
   if (ok) {
     try { await startTracking(); }
-    catch (e) { statusEl.textContent = "Hand tracking unavailable. Use touch or mouse"; }
+    catch (e) {
+      statusEl.textContent = "Hand tracking unavailable: " + (e && e.message ? e.message.slice(0, 80) : "unknown error");
+      console.error("hand tracking failed", e);
+    }
   }
   if (!ok) cursor.classList.remove("on");
   requestAnimationFrame(loop);
