@@ -196,8 +196,8 @@ var $ = function(id){ return document.getElementById(id); };
    smooth: how fast the ring follows the phone's orientation (1 = instant, lower = smoother but laggier). */
 var DEFAULTS = { pinch: null, swipe: .2, zoom: 350, smooth: .7 };   /* pinch: null = the gesture engine's own default */
 var T = Object.assign({}, DEFAULTS);
-try { Object.assign(T, JSON.parse(localStorage.getItem("ar-tune2") || "{}")); } catch (e) {}
-function saveTune(){ try { localStorage.setItem("ar-tune2", JSON.stringify(T)); applyTune(); } catch (e) {} }
+try { Object.assign(T, JSON.parse(localStorage.getItem("ar-tune3") || "{}")); } catch (e) {}
+function saveTune(){ try { localStorage.setItem("ar-tune3", JSON.stringify(T)); applyTune(); } catch (e) {} }
 var ring = $("ring"), camera = $("camera"), cursor = $("cursor"), statusEl = $("status");
 var lb = $("lb"), lbBody = $("lbBody"), lbTitle = $("lbTitle"), lbIn = $("lbIn");
 var guide = $("guide"), flashEl = $("flash"), video = $("cam");
@@ -384,6 +384,7 @@ function updateDebug(now){
   if (!debugOn) return;
   dbgText.textContent = "fps " + fpsShown + " · detect " + detectShown.toFixed(0) + "ms" +
     "\nhands " + handsPx.length + " · pinch " + handsPx.map(function(h){ return h.pinchStrength.toFixed(2) + (h.pinching ? "*" : ""); }).join(" ") +
+    (handsPx[0] && handsPx[0].ratio != null ? "\ngap " + handsPx[0].ratio.toFixed(2) + " (3d " + handsPx[0].ratio3.toFixed(2) + ", 2d " + handsPx[0].ratio2.toFixed(2) + ") pinch at " + engine.opts.pinchOn.toFixed(2) + (handsPx[0].fist ? " FIST" : "") : "") +
     (lastPinch ? "\n" + lastPinch : "") + (fingerNote ? "\n" + fingerNote : "") +
     "\nyaw " + yawView.toFixed(0) + " · pitch " + pitchView.toFixed(0) +
     "\nview " + view + " · focus " + focus + " · zoom " + camZ.toFixed(0);
@@ -520,7 +521,7 @@ function applyHands(state){
     var over = view === "space" ? surface.pick(tip.x, tip.y) : -1;
     if (over >= 0 && newHot < 0) { newHot = over; lastHot = over; hotAt = performance.now(); }
     return { id: h.id, landmarks: h.landmarks.map(function(l){ return surface.toScreen(l.x, l.y); }), tip: tip,
-      pinchPoint: surface.toScreen(h.pinchPoint.x, h.pinchPoint.y), pinching: h.pinching, pinchStrength: h.pinchStrength,
+      pinchPoint: surface.toScreen(h.pinchPoint.x, h.pinchPoint.y), pinching: h.pinching, pinchStrength: h.pinchStrength, ratio: h.ratio, ratio3: h.ratio3, ratio2: h.ratio2, fist: h.fist,
       hover: over >= 0, grabbing: !!grab && grab.id === h.id };
   });
   if (!grab) {
@@ -544,7 +545,7 @@ function liveStatus(now){
   if (!tracker) { statusEl.textContent = "Loading hand tracking"; return; }
   var h = handsPx[0];
   statusEl.textContent = !h ? "Show your hand" :
-    (h.pinching ? "Pinch" : "Hand " + Math.round(h.pinchStrength * 100) + "%") + (sel >= 0 ? " \u00b7 selected: " + PROJECTS[sel].t : hot >= 0 ? " \u00b7 hold on " + PROJECTS[hot].t : " \u00b7 point at a video");
+    (h.pinching ? "Pinch" : "Gap " + (h.ratio == null ? "-" : h.ratio.toFixed(2)) + " of " + engine.opts.pinchOn.toFixed(2) + (h.fist ? " fist" : "")) + (sel >= 0 ? " \u00b7 selected: " + PROJECTS[sel].t : hot >= 0 ? " \u00b7 hold on " + PROJECTS[hot].t : " \u00b7 point at a video");
 }
 function fingersFrame(source, now){
   var sw = source.videoWidth || source.width, sh = source.videoHeight || source.height;

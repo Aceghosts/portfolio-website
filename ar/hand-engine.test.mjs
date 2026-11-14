@@ -199,6 +199,22 @@ test("a fist does not pinch; open palm is reported", () => {
   assert.equal(r2.of("pinchstart").length, 1);
 });
 
+/* real phones: the image shows the tips touching, but noisy world depth keeps them apart in 3D */
+function depthNoise(h, dz) { h.w[8] = { ...h.w[8], z: h.w[8].z + dz }; return h; }
+test("tips touching in the image but 3.5 cm apart in noisy world depth still pinch", () => {
+  const r = rig();
+  r.step([hand({ gap: OPEN })], 5);
+  r.step([depthNoise(hand({ gap: SHUT }), 0.07)], 8);   /* zWeight halves it: 3D ratio about 0.39, above pinchOn on its own */
+  assert.ok(r.state.hands[0].ratio3 > r.engine.opts.pinchOn, "3D alone would miss: " + r.state.hands[0].ratio3);
+  assert.equal(r.of("pinchstart").length, 1);
+});
+test("tips lined up along the camera axis but far apart in depth do not pinch", () => {
+  const r = rig();
+  r.step([hand({ gap: OPEN })], 5);
+  r.step([depthNoise(hand({ gap: SHUT }), 0.2)], 10);
+  assert.equal(r.of("pinchstart").length, 0);
+});
+
 test("two hands pinching and moving apart: scale > 1, twomove, no pinchmove, never a tap", () => {
   const r = rig();
   r.step([hand({ cx: 0.4, gap: OPEN }), hand({ cx: 0.6, gap: OPEN })], 5);

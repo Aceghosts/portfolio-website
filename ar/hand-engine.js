@@ -52,13 +52,14 @@ export const DEFAULTS = {
   dCutoff: 1,
   ratioCutoff: 6,      /* Hz, light smoothing of the pinch ratio itself */
   /* pinch ratio = thumb tip to index tip distance / hand size (wrist to middle knuckle) */
-  pinchOn: 0.28,
-  pinchOff: 0.42,
+  pinchOn: 0.32,
+  pinchOff: 0.5,
   pinchOpen: 0.9,      /* ratio at which pinchStrength reads 0 */
   pinchOnMs: 30,       /* the ratio must stay past the threshold this long (always at least 2 frames) */
   pinchOffMs: 50,
-  fistCurl: 0.45,      /* fingertip to its own knuckle, in hand sizes, below which a finger counts as tucked */
-  zWeight: 1,          /* weight of depth in the 3D tip distance; lower it if world z is noisy on a device */
+  fistCurl: 0.35,      /* fingertip to its own knuckle, in hand sizes, below which a finger counts as tucked */
+  zWeight: 0.5,        /* weight of depth in the 3D tip distance; world z is the noisiest axis on real phones */
+  blend2d: 0.6,        /* the 2D image ratio may pull the 3D ratio down to this fraction of itself, no further (0 = 2D only, 1 = 3D only) */
   aspect: 1,           /* video width / height, only used for 2D distances (set it from the video element) */
   graceMs: 120,
   tapMaxMs: 450,
@@ -83,12 +84,14 @@ function centroid(pts, out) {
    with hand rotation or distance from the camera. Without them, the same ratios in 2D. */
 function measure(lm, w, o) {
   let d, size, tips;
+  const d2 = (a, b) => Math.hypot((lm[a].x - lm[b].x) * o.aspect, lm[a].y - lm[b].y);
+  const ratio2 = d2(4, 8) / (Math.max(d2(0, 9), 1.4 * d2(5, 17)) || 1e-6);
   if (w) {
     d = (a, b) => Math.hypot(w[a].x - w[b].x, w[a].y - w[b].y, w[a].z - w[b].z);
     size = d(0, 9);
     tips = Math.hypot(w[4].x - w[8].x, w[4].y - w[8].y, (w[4].z - w[8].z) * o.zWeight);
   } else {
-    d = (a, b) => Math.hypot((lm[a].x - lm[b].x) * o.aspect, lm[a].y - lm[b].y);
+    d = d2;
     /* palm width covers the case where the wrist-to-knuckle axis is foreshortened (1.4 = typical length / width) */
     size = Math.max(d(0, 9), 1.4 * d(5, 17));
     tips = d(4, 8);
@@ -96,8 +99,13 @@ function measure(lm, w, o) {
   size = size || 1e-6;
   let straight = 1;
   for (const [a, b, c, e] of FINGERS) straight = Math.min(straight, d(a, e) / (d(a, b) + d(b, c) + d(c, e) || 1e-6));
+  /* On real phones the 3D tips rarely read as touching (world depth is noisy), so a real pinch can sit at 0.3 to 0.4
+     in 3D while the image clearly shows contact. The 2D ratio may therefore pull the 3D one down, but only to
+     blend2d of it: fingers that merely line up along the camera axis (small in 2D, far apart in 3D) still do not pinch. */
+  const ratio3 = tips / size;
   return {
-    ratio: tips / size,
+    ratio: w ? Math.min(ratio3, Math.max(ratio2, o.blend2d * ratio3)) : ratio3,
+    ratio3, ratio2,
     /* Fist rejection: in a fist the thumb often rests on the index tip, so the tip ratio alone reads as a pinch.
        "Middle finger up" was tried before and rejected real pinches made with relaxed, half-curled fingers.
        What separates the two is the index itself: pinching, its tip is about 0.7 hand sizes from its own knuckle;
@@ -153,6 +161,7 @@ export function createGestureEngine(userOpts = {}) {
     }
     const m = measure(lm, det.w, o);
     const ratio = filt(tr.fr, m.ratio, t, o.ratioCutoff, 0);
+    h.ratio = ratio; h.ratio3 = m.ratio3; h.ratio2 = m.ratio2; h.fist = m.fist;
     const strength = clamp01((o.pinchOpen - ratio) / (o.pinchOpen - o.pinchOn));
 
     /* pinchPoint = thumb/index midpoint + offset. The midpoint slides as the fingers close or open, which would
