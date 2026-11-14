@@ -20,6 +20,8 @@ button{font-family:inherit;cursor:pointer}
 #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0;transition:opacity .6s}
 #cam.on{opacity:1}
 .veil{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at center,rgba(11,9,8,.15),rgba(11,9,8,.85) 80%)}
+#hud{position:fixed;inset:0;width:100%;height:100%;z-index:170;pointer-events:none}
+.card.hot{border-color:var(--cream);box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 60px rgba(255,179,92,.7)}
 body.xr{background:transparent}
 body.xr .veil,body.xr #space,body.xr #cam,body.xr .cursor{display:none}
 body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.14),rgba(11,9,8,.97) 70%)}
@@ -112,14 +114,14 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
   </div>
 </div>
 
-<div class="hint" id="hint">Pinch and swipe to turn · quick pinch opens the front video</div>
+<div class="hint" id="hint">Point · quick pinch to open · pinch and drag to spin</div>
 
 <div id="lb">
   <div class="lb-in" id="lbIn">
     <div class="lb-title" id="lbTitle"></div>
     <div id="lbBody"></div>
   </div>
-  <div class="lb-nav">Quick pinch to go back · pinch and swipe left or right for next or previous</div>
+  <div class="lb-nav">Quick pinch to go back · pinch and drag sideways for next or previous</div>
 </div>
 <button class="back" id="backBtn">← Back to the space</button>
 
@@ -128,23 +130,25 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
     <h2>How to use AR</h2>
     <p>Hold your phone so the back camera sees your hand. Videos float in a 3D ring around you and stay in place as you turn.</p>
     <div id="guideRows">
-    <div class="g-row"><div class="g-ico">↔</div><div><b>Pinch, then swipe left or right</b><span>Turn the ring to the next or previous video.</span></div></div>
-    <div class="g-row"><div class="g-ico">↕</div><div><b>Pinch, then swipe up or down</b><span>Tilt the ring to see it from above or below.</span></div></div>
-    <div class="g-row"><div class="g-ico">👌</div><div><b>Quick pinch</b><span>Open the video at the front. Quick pinch again to go back.</span></div></div>
-    <div class="g-row"><div class="g-ico">⤢</div><div><b>Thumb and index, open and close</b><span>Spread them apart to move into the space, bring them together to move out.</span></div></div>
+    <div class="g-row"><div class="g-ico">☝</div><div><b>Point with your index finger</b><span>A reticle follows your fingertip. The video you point at lights up.</span></div></div><div class="g-row"><div class="g-ico">👌</div><div><b>Quick pinch on a video</b><span>Opens it. Quick pinch again to go back.</span></div></div><div class="g-row"><div class="g-ico">↔</div><div><b>Pinch, hold and drag</b><span>Grab the ring and spin it. Let go while moving to throw it.</span></div></div><div class="g-row"><div class="g-ico">⤢</div><div><b>Two hands, pinch and pull apart</b><span>Stretch the space bigger, or push together to shrink it.</span></div></div>
     </div>
     <button class="chip" id="guideClose">Got it</button>
+    <button id="touchOnly" style="display:none;margin-top:10px;width:100%;background:none;border:none;color:var(--muted);font-size:11px;letter-spacing:.08em;text-decoration:underline">Start without hand tracking</button>
   </div>
 </div>
 
+<canvas id="hud"></canvas>
 <div class="cursor" id="cursor"></div>
 <div id="dbgOut" style="display:none;position:fixed;left:8px;right:8px;bottom:70px;z-index:230;font:11px/1.5 monospace;color:#FFB35C;background:rgba(0,0,0,.78);padding:8px 10px;border-radius:8px;touch-action:auto">
   <pre id="dbgText" style="font:inherit;white-space:pre-wrap"></pre>
-  <label style="display:flex;gap:8px;align-items:center;margin-top:4px">pinch <input type="range" data-k="pinch" min="0.15" max="0.5" step="0.01" style="flex:1"><b data-v="pinch"></b></label>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:4px">pinch <input type="range" data-k="pinch" min="0.1" max="0.8" step="0.01" style="flex:1"><b data-v="pinch"></b></label>
   <label style="display:flex;gap:8px;align-items:center">swipe <input type="range" data-k="swipe" min="0.08" max="0.5" step="0.01" style="flex:1"><b data-v="swipe"></b></label>
   <label style="display:flex;gap:8px;align-items:center">zoom <input type="range" data-k="zoom" min="50" max="900" step="10" style="flex:1"><b data-v="zoom"></b></label>
   <label style="display:flex;gap:8px;align-items:center">anchor <input type="range" data-k="smooth" min="0.1" max="1" step="0.05" style="flex:1"><b data-v="smooth"></b></label>
   <button id="tuneReset" class="chip" style="margin-top:6px;padding:5px 10px;font-size:10px">Reset</button>
+  <button class="chip" data-cal="flipX" style="padding:5px 10px;font-size:10px">Flip X</button>
+  <button class="chip" data-cal="flipY" style="padding:5px 10px;font-size:10px">Flip Y</button>
+  <button class="chip" data-cal="rotate" style="padding:5px 10px;font-size:10px">Rotate</button> <b id="calOut"></b>
 </div>
 <div class="flash" id="flash"></div>
 
@@ -189,10 +193,10 @@ var $ = function(id){ return document.getElementById(id); };
    swipe: how far the pinched hand moves, as a fraction of screen width, to turn one card.
    zoom: how many px the space moves per hand width of thumb-index spread.
    smooth: how fast the ring follows the phone's orientation (1 = instant, lower = smoother but laggier). */
-var DEFAULTS = { pinch: .28, swipe: .2, zoom: 350, smooth: .7 };
+var DEFAULTS = { pinch: null, swipe: .2, zoom: 350, smooth: .7 };   /* pinch: null = the gesture engine's own default */
 var T = Object.assign({}, DEFAULTS);
-try { Object.assign(T, JSON.parse(localStorage.getItem("ar-tune") || "{}")); } catch (e) {}
-function saveTune(){ try { localStorage.setItem("ar-tune", JSON.stringify(T)); } catch (e) {} }
+try { Object.assign(T, JSON.parse(localStorage.getItem("ar-tune2") || "{}")); } catch (e) {}
+function saveTune(){ try { localStorage.setItem("ar-tune2", JSON.stringify(T)); applyTune(); } catch (e) {} }
 var ring = $("ring"), camera = $("camera"), cursor = $("cursor"), statusEl = $("status");
 var lb = $("lb"), lbBody = $("lbBody"), lbTitle = $("lbTitle"), lbIn = $("lbIn");
 var guide = $("guide"), flashEl = $("flash"), video = $("cam");
@@ -358,11 +362,8 @@ window.addEventListener("wheel", function(e){
 }, { passive: true });
 
 /* ---------- hand tracking ---------- */
-var hands = null, lastVideoTime = -1;
-var dotX = null, dotY = null;
-var pinchFrames = 0, pinchActive = false, pinchStart = 0, pinchAnchor = null, pinchDragged = false, lastSelect = 0;
-var lastSwipe = 0, zoomBase = null;
-var lastMetrics = null, frameMs = 0, detectMs = 0, fpsCount = 0, fpsStart = performance.now(), fpsShown = 0, detectShown = 0;
+var lastVideoTime = -1;
+var fpsCount = 0, fpsStart = performance.now(), fpsShown = 0, detectShown = 0;
 var debugOn = false;
 var dbg = document.getElementById("dbgOut"), dbgText = document.getElementById("dbgText");
 Array.prototype.forEach.call(dbg.querySelectorAll("input[data-k]"), function(inp){
@@ -380,15 +381,13 @@ function updateDebug(now){
   fpsCount++;
   if (now - fpsStart > 1000) { fpsShown = fpsCount; fpsCount = 0; fpsStart = now; }
   if (!debugOn) return;
-  var m = lastMetrics || {};
   dbgText.textContent = "fps " + fpsShown + " · detect " + detectShown.toFixed(0) + "ms" +
-    "\npinch " + (m.thumbIndex != null ? m.thumbIndex.toFixed(2) : "-") +
-    " · together " + (m.together != null ? m.together.toFixed(2) : "-") +
+    "\nhands " + handsPx.length + " · pinch " + handsPx.map(function(h){ return h.pinchStrength.toFixed(2) + (h.pinching ? "*" : ""); }).join(" ") +
+    (fingerNote ? "\n" + fingerNote : "") +
     "\nyaw " + yawView.toFixed(0) + " · pitch " + pitchView.toFixed(0) +
     "\nview " + view + " · focus " + focus + " · zoom " + camZ.toFixed(0);
 }
 
-function dist(a, b){ return Math.hypot(a.x - b.x, a.y - b.y); }
 function setDot(x, y, pinching){
   cursor.classList.add("on");
   cursor.style.transform = "translate(" + x.toFixed(0) + "px," + y.toFixed(0) + "px)";
@@ -416,35 +415,135 @@ async function startCamera(){
   }
 }
 
+/* ---------- finger control ----------
+   hand-engine.js turns MediaPipe landmarks into filtered hands and pinch events; hud.js draws them.
+   A "surface" says how the current mode maps the camera image to the screen and to the cards, so the
+   same gestures drive both the CSS ring and the WebXR ring:
+     point = hover a card, quick pinch = open it (or go back), pinch and drag = spin (release throws),
+     two hands pinching = scale. */
+var tracker = null, engine = null, hud = null, surface = null;
+var handsPx = [], hudExtra = { two: { active: false, center: { x: 0, y: 0 }, scale: 1 } };
+var hot = -1, grab = null, twoBase = null, pinchGap = 0, fingerNote = "";
+var modsLoad = null;
+function loadMods(){ return modsLoad || (modsLoad = Promise.all([import("./hand-engine.js"), import("./hud.js")])); }
+
+function applyTune(){
+  if (!engine) return;
+  if (T.pinch == null) return;
+  engine.opts.pinchOn = T.pinch; engine.opts.pinchOff = T.pinch + pinchGap;
+}
+
+var domSurface = {
+  /* the camera video is shown with object-fit: cover, so undo that crop to land exactly on the finger */
+  toScreen: function(u, v){
+    var vw = video.videoWidth || innerWidth, vh = video.videoHeight || innerHeight;
+    var k = Math.max(innerWidth / vw, innerHeight / vh);
+    return { x: (u - .5) * vw * k + innerWidth / 2, y: (v - .5) * vh * k + innerHeight / 2 };
+  },
+  pick: function(x, y){
+    var el = document.elementFromPoint(x, y); el = el && el.closest && el.closest(".card");
+    return el ? cards.indexOf(el) : -1;
+  },
+  rotate: function(dx, dy){
+    rot += dx * .35; target = rot;
+    tilt = Math.max(-28, Math.min(28, tilt - dy * .2)); tiltTarget = tilt;
+  },
+  release: function(vx){ focus = Math.round(-(rot + vx * .35 * .25) / STEP); target = -focus * STEP; },   /* throw: a quarter second of momentum, then snap to a card */
+  scaleStart: function(){ return camTarget; },
+  scale: function(base, k){ zoomTo(base + (k - 1) * T.zoom); },
+  hot: function(i){ cards.forEach(function(c, j){ c.classList.toggle("hot", j === i); }); }
+};
+
+function wireEngine(){
+  engine.on("pinchstart", function(e){
+    if (grab) return;
+    var p = surface.toScreen(e.point.x, e.point.y), tip = surface.toScreen(e.hand.tip.x, e.hand.tip.y);
+    /* the card is chosen at the moment the pinch closes: what is between the fingers, else what the fingertip points at */
+    var card = view === "space" ? surface.pick(p.x, p.y) : -1;
+    if (card < 0 && view === "space") card = surface.pick(tip.x, tip.y);
+    grab = { id: e.hand.id, card: card, last: p, x0: p.x, stepped: false };
+    hud.pulse(p.x, p.y, "grab");
+  });
+  engine.on("pinchmove", function(e){
+    if (!grab || grab.id !== e.hand.id) return;
+    var p = surface.toScreen(e.point.x, e.point.y), dx = p.x - grab.last.x, dy = p.y - grab.last.y;
+    grab.last = p;
+    if (view === "space") surface.rotate(dx, dy);
+    else if (!grab.stepped && Math.abs(p.x - grab.x0) > T.swipe * innerWidth) { grab.stepped = true; stepVideo(p.x < grab.x0 ? 1 : -1); }
+  });
+  engine.on("pinchend", function(e){
+    if (!grab || grab.id !== e.hand.id) return;
+    var g = grab, p = g.last; grab = null;
+    if (e.tap) {
+      hud.pulse(p.x, p.y, "tap");
+      if (performance.now() - lastOpen < 500) return;
+      if (view === "video") { closeVideo(); flash("Back to the space"); }
+      else if (g.card >= 0) {
+        if (PROJECTS[g.card].v || PROJECTS[g.card].vlist) openProject(g.card);
+        else flash("No video on this one");
+      }
+    } else {
+      hud.pulse(p.x, p.y, "release");
+      if (view === "space") surface.release(surface.toScreen(e.vel.x, 0).x - surface.toScreen(0, 0).x);
+    }
+  });
+  engine.on("twostart", function(){ grab = null; twoBase = surface.scaleStart(); });
+  engine.on("twomove", function(e){ if (twoBase != null && view === "space") surface.scale(twoBase, e.scale); });
+  engine.on("twoend", function(){ twoBase = null; });
+}
+
+/* engine state (camera image coords) -> screen px for the HUD, plus which card the finger is over */
+function applyHands(state){
+  var newHot = -1;
+  handsPx = state.hands.map(function(h){
+    var tip = surface.toScreen(h.tip.x, h.tip.y);
+    var over = view === "space" ? surface.pick(tip.x, tip.y) : -1;
+    if (over >= 0 && newHot < 0) newHot = over;
+    return { id: h.id, landmarks: h.landmarks.map(function(l){ return surface.toScreen(l.x, l.y); }), tip: tip,
+      pinchPoint: surface.toScreen(h.pinchPoint.x, h.pinchPoint.y), pinching: h.pinching, pinchStrength: h.pinchStrength,
+      hover: over >= 0, grabbing: !!grab && grab.id === h.id };
+  });
+  if (grab && grab.card >= 0) newHot = grab.card;
+  if (newHot !== hot) { hot = newHot; surface.hot(hot); }
+  var two = state.two || {};
+  hudExtra.two.active = !!two.active;
+  if (two.active) { hudExtra.two.center = surface.toScreen(two.center.x, two.center.y); hudExtra.two.scale = two.scale; }
+}
+function fingersFrame(source, now){
+  var sw = source.videoWidth || source.width, sh = source.videoHeight || source.height;
+  if (sw && sh) engine.opts.aspect = sw / sh;
+  var t0 = performance.now();
+  var res = tracker.detect(source, now);
+  detectShown = performance.now() - t0;
+  applyHands(engine.update(res, now));
+}
+/* engine and HUD only: no camera needed, so the test hook works anywhere */
+async function loadFingers(){
+  var m = await loadMods();
+  engine = m[0].createGestureEngine();
+  pinchGap = engine.opts.pinchOff - engine.opts.pinchOn;
+  if (T.pinch == null) { T.pinch = DEFAULTS.pinch = engine.opts.pinchOn; }
+  applyTune(); wireEngine();
+  hud = m[1].createHandHUD($("hud"));
+  Array.prototype.forEach.call(dbg.querySelectorAll("input[data-k]"), function(inp){ inp._show(); });
+  return m[0];
+}
 async function startTracking(){
   statusEl.textContent = "Loading hand tracking";
-  /* loaded on demand, so a slow or blocked download never stops the cards from showing */
-  var mp = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm");
-  var FilesetResolver = mp.FilesetResolver, HandLandmarker = mp.HandLandmarker;
-  var vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-  var opts = {
-    runningMode: "VIDEO", numHands: 1
-  };
-  /* GPU first; some phones refuse it, so fall back to CPU instead of giving up */
-  try {
-    hands = await HandLandmarker.createFromOptions(vision, Object.assign({ baseOptions: { modelAssetPath: "hand_landmarker.task", delegate: "GPU" } }, opts));
-  } catch (gpuErr) {
-    hands = await HandLandmarker.createFromOptions(vision, Object.assign({ baseOptions: { modelAssetPath: "hand_landmarker.task", delegate: "CPU" } }, opts));
-  }
-  statusEl.textContent = "Back camera on";
+  var mod = await loadFingers();
+  tracker = await mod.createHandTracker({ modelPath: "hand_landmarker.task", numHands: 2 });
+  statusEl.textContent = "Hands on. Point and pinch";
   cameraOn = true;
 }
 
 function loop(now){
   /* one bad frame must not stop the loop: report it and keep going */
   try {
-    if (hands && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+    if (tracker && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
       lastVideoTime = video.currentTime;
-      var t0 = performance.now();
-      var res = hands.detectForVideo(video, now);
-      detectShown = performance.now() - t0;
-      handleHand(res.landmarks && res.landmarks[0]);
+      fingersFrame(video, now);
     }
+    if (hud) hud.draw(handsPx, now, hudExtra);
     updateDebug(now);
   } catch (err) {
     statusEl.textContent = "Error: " + (err && err.message ? err.message.slice(0, 80) : String(err));
@@ -454,72 +553,21 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 
-/* one hand, read from its 21 landmarks; the back camera image is not mirrored */
-function handleHand(lm){
-  if (!lm) {
-    cursor.classList.remove("on");
-    pinchFrames = 0; pinchActive = false; pinchAnchor = null; zoomBase = null;
-    return;
-  }
-  var s = dist(lm[0], lm[9]) || .1;
-  var thumbIndex = dist(lm[4], lm[8]) / s;
-  var together = dist(lm[8], lm[12]) / s;
-  var indexUp = dist(lm[0], lm[8]) > dist(lm[0], lm[6]) * 1.1;
-  var middleUp = dist(lm[0], lm[12]) > dist(lm[0], lm[10]) * 1.1;
-  lastMetrics = { thumbIndex: thumbIndex, together: together, indexUp: indexUp, middleUp: middleUp };
-
-  /* index fingertip dot, smoothed */
-  var sx = lm[8].x * innerWidth, sy = lm[8].y * innerHeight;
-  if (dotX === null) { dotX = sx; dotY = sy; }
-  dotX += (sx - dotX) * .4; dotY += (sy - dotY) * .4;
-
-  /* pinch (thumb and index touching) is the one control:
-     pinch and swipe left/right turns the ring, up/down tilts it;
-     a short pinch with no swipe opens the front video, or goes back from a video.
-     The select fires on release, so a swipe never opens a video by accident. */
-  var now = performance.now();
-  var pinching = pinchActive ? thumbIndex < T.pinch + .12 : thumbIndex < T.pinch;   /* hysteresis so a shaky hand does not flicker */
-  setDot(dotX, dotY, pinching);
-  var px = (lm[4].x + lm[8].x) / 2 * innerWidth, py = (lm[4].y + lm[8].y) / 2 * innerHeight;
-  if (pinching) {
-    pinchFrames++;
-    if (!pinchActive) { pinchActive = true; pinchStart = now; pinchAnchor = { x: px, y: py }; pinchDragged = false; }
-    var dx = px - pinchAnchor.x, dy = py - pinchAnchor.y;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) > T.swipe * innerWidth && now - lastSwipe > 450) {
-      lastSwipe = now; pinchDragged = true;
-      if (Math.abs(dx) > Math.abs(dy)) { turn(dx < 0 ? 1 : -1); flash(dx < 0 ? "Swipe ←" : "Swipe →"); }
-      else { tiltBy(dy < 0 ? 8 : -8); flash(dy < 0 ? "Swipe ↑" : "Swipe ↓"); }
-      pinchAnchor = { x: px, y: py };
-    }
-  } else {
-    if (pinchActive) {
-      var settled = view === "video" || Math.abs(rot - target) < 10;
-      if (!pinchDragged && pinchFrames >= 3 && now - pinchStart < 900 && settled && now - lastSelect > 700 && now - lastOpen > 600) {
-        lastSelect = now;
-        if (view === "video") { closeVideo(); flash("Back to the space"); }
-        else if (PROJECTS[front()].v || PROJECTS[front()].vlist) { openProject(front()); }
-        else { flash("No video here. Pinch and swipe to another card"); }
-      }
-    }
-    pinchActive = false; pinchFrames = 0; pinchAnchor = null;
-  }
-
-  /* thumb and index apart: move into (open) or out of (close) the space */
-  if (!pinching && thumbIndex > .6) {
-    if (!zoomBase) zoomBase = { r: thumbIndex, z: camTarget };
-    zoomTo(zoomBase.z + (thumbIndex - zoomBase.r) * T.zoom);
-  } else {
-    zoomBase = null;
-  }
-}
-
-
 /* ---------- WebXR: real world anchoring (Android Chrome) ----------
    The phone's AR session tracks the room, so the ring is placed on a real floor or table and stays
    there while you walk. HTML cannot live inside a tracked scene, so the ring is drawn with three.js;
    the top bar, guide and video view stay as a DOM overlay. The AR session owns the camera, so hand
-   tracking is off in this mode: tap a card to open it, swipe to turn, two-finger pinch to resize. */
-var xrMode = false, xrStarted = false, THREE = null, threeLoad = null;
+   tracking reads the session's own camera image (xr-camera.js, WebXR "camera-access"). If the phone
+   refuses that, touch still works: tap a card to open it, swipe to turn, two-finger pinch to resize. */
+var xrMode = false, xrStarted = false, THREE = null, threeLoad = null, xrFeed = null, xrHands = true;
+/* camera image orientation fixes, set from the Debug panel if the hand overlay moves the wrong way on a phone */
+var CAL = { flipX: false, flipY: false, rotate: 0 };
+try { Object.assign(CAL, JSON.parse(localStorage.getItem("ar-cal") || "{}")); } catch (e) {}
+function applyCal(){
+  try { localStorage.setItem("ar-cal", JSON.stringify(CAL)); } catch (e) {}
+  if (xrFeed) { xrFeed.flipX = CAL.flipX; xrFeed.flipY = CAL.flipY; xrFeed.rotate = CAL.rotate; }
+  $("calOut").textContent = (CAL.flipX ? "X " : "") + (CAL.flipY ? "Y " : "") + (CAL.rotate ? "R" + CAL.rotate : "");
+}
 async function xrSupported(){
   try { return !!(navigator.xr && await navigator.xr.isSessionSupported("immersive-ar")); } catch (e) { return false; }
 }
@@ -546,11 +594,11 @@ function cardTexture(p){
 }
 async function startXR(){
   /* requestSession first: it must run inside the tap that started it */
-  var session = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["hit-test", "dom-overlay"], domOverlay: { root: document.body } });
+  var session = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["hit-test", "dom-overlay"], optionalFeatures: xrHands ? ["camera-access"] : [], domOverlay: { root: document.body } });
   THREE = await threeLoad;
   document.body.classList.add("xr");
   statusEl.textContent = "Point at a floor or table, then tap to place";
-  hintEl.textContent = "Tap to place \u00b7 then tap a video, swipe to turn, pinch to resize, walk around";
+  hintEl.textContent = "Tap to place \u00b7 then point, pinch to open, pinch and drag to spin";
 
   var renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setPixelRatio(devicePixelRatio);
@@ -575,8 +623,47 @@ async function startXR(){
 
   var viewerSpace = await session.requestReferenceSpace("viewer");
   var hitSource = await session.requestHitTestSource({ space: viewerSpace });
-  var placed = false, xrTarget = 0, camPos = null;
+  var placed = false, xrTarget = 0, camPos = null, xrHot = -1, feed = null, skip = false;
+  var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  var xrSurface = {
+    toScreen: function(u, v){ var n = feed.imageToNDC(u, v); return { x: (n.x + 1) / 2 * innerWidth, y: (1 - n.y) / 2 * innerHeight }; },
+    pick: function(x, y){
+      if (!placed) return -1;
+      ndc.set(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2);
+      var c = renderer.xr.getCamera(); ray.setFromCamera(ndc, (c.cameras && c.cameras[0]) || c);
+      var hit = ray.intersectObjects(meshes)[0];
+      return hit ? hit.object.userData.i : -1;
+    },
+    rotate: function(dx){ xrTarget += dx * .008; },
+    release: function(vx){ xrTarget += vx * .008 * .25; },
+    scaleStart: function(){ return group.scale.x; },
+    scale: function(base, k){ group.scale.setScalar(Math.max(.3, Math.min(4, base * k))); },
+    hot: function(i){ xrHot = i; }
+  };
+  /* hand tracking loads in the background; placing and touch work while it does */
+  if (xrHands) Promise.all([loadFingers(), import("./xr-camera.js")]).then(async function(m){
+    feed = xrFeed = m[1].createXRCameraFeed(renderer, session, { maxSize: 480 });
+    applyCal();
+    surface = xrSurface;
+    if (feed.supported === false) { fingerNote = "hands: camera access not granted, touch only"; return; }
+    tracker = await m[0].createHandTracker({ modelPath: "hand_landmarker.task", numHands: 2 });
+  }).catch(function(e){ fingerNote = "hands: " + (e && e.message ? e.message.slice(0, 80) : e); });
+
   renderer.setAnimationLoop(function(t, frame){
+    /* fingers: every frame, or every other frame when detection is slow on this phone */
+    try {
+      if (frame && tracker && feed && feed.supported !== false && !(skip = !skip && detectShown > 45)) {
+        var cap = feed.capture(frame, renderer.xr.getReferenceSpace());
+        if (cap) fingersFrame(cap.canvas, t);
+        else if (feed.error) fingerNote = "camera: " + feed.error;
+      } else if (feed) feed.syncState();   /* three 0.160 needs its texture cache cleared on every camera-access frame */
+      for (var mi = 0; mi < meshes.length; mi++) {
+        var ms = meshes[mi].scale.x + ((mi === xrHot ? 1.12 : 1) - meshes[mi].scale.x) * .3;
+        meshes[mi].scale.setScalar(ms);
+      }
+      if (hud) hud.draw(handsPx, t, hudExtra);
+      updateDebug(t);
+    } catch (err) { fingerNote = "err: " + (err && err.message ? err.message.slice(0, 80) : err); }
     if (frame && !placed) {
       var ref = renderer.xr.getReferenceSpace();
       var hits = frame.getHitTestResults(hitSource);
@@ -645,14 +732,15 @@ var hintEl = document.getElementById("hint");
     threeLoad = import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
     statusEl.textContent = "Tap Start AR";
     $("guideClose").textContent = "Start AR";
-    $("guideRows").innerHTML =
-      '<div class="g-row"><div class="g-ico">\u25CE</div><div><b>Point at a floor or table, tap to place</b><span>The ring lands on the surface and stays there while you walk around it.</span></div></div>' +
-      '<div class="g-row"><div class="g-ico">\u261D</div><div><b>Tap a video</b><span>Opens it. Use Back to return to the space.</span></div></div>' +
-      '<div class="g-row"><div class="g-ico">\u2194</div><div><b>Swipe left or right</b><span>Turns the ring.</span></div></div>' +
-      '<div class="g-row"><div class="g-ico">\u2922</div><div><b>Two-finger pinch</b><span>Makes the ring bigger or smaller.</span></div></div>';
+    $("guideRows").insertAdjacentHTML("afterbegin",
+      '<div class="g-row"><div class="g-ico">\u25CE</div><div><b>Point at a floor or table, tap to place</b><span>The ring lands on the surface and stays there while you walk around it.</span></div></div>');
+    loadMods();
+    $("touchOnly").style.display = "block";
     return;   /* the CSS ring stays as a preview until Start AR is tapped */
   }
+  surface = domSurface;
   var ok = await startCamera();
+  if (!ok) loadFingers().catch(function(){});
   if (ok) {
     try { await startTracking(); }
     catch (e) {
@@ -667,6 +755,7 @@ var hintEl = document.getElementById("hint");
 
 /* guide */
 $("guideBtn").addEventListener("click", function(){ guide.classList.add("open"); });
+$("touchOnly").addEventListener("click", function(){ xrHands = false; $("guideClose").click(); });
 $("guideClose").addEventListener("click", function(){
   guide.classList.remove("open");
   if (xrMode && !xrStarted) {
@@ -674,6 +763,7 @@ $("guideClose").addEventListener("click", function(){
     startXR().catch(function(e){
       statusEl.textContent = "AR failed: " + (e && e.message ? e.message.slice(0, 80) : e) + ". Using touch";
       document.body.classList.remove("xr");
+      surface = domSurface; loadFingers().catch(function(){});
       requestAnimationFrame(loop);
     });
   } else if (!xrMode) startOrientation();
@@ -686,7 +776,15 @@ window.addEventListener("keydown", function(e){
 });
 render();
 /* test hook: lets the page's own gesture code be driven with landmark data */
-window.__ar = { handleHand: handleHand, state: function(){ return { view: view, focus: focus, rot: rot, target: target, camZ: camZ }; } };
+window.__ar = { feed: function(res, t){ applyHands(engine.update(res, t)); hud.draw(handsPx, t, hudExtra); }, hands: function(){ return handsPx; }, hot: function(){ return hot; }, state: function(){ return { view: view, focus: focus, rot: rot, target: target, camZ: camZ }; } };
+Array.prototype.forEach.call(document.querySelectorAll("[data-cal]"), function(b){
+  b.addEventListener("click", function(){
+    var k = b.dataset.cal;
+    if (k === "rotate") CAL.rotate = (CAL.rotate + 1) % 4; else CAL[k] = !CAL[k];
+    applyCal();
+  });
+});
+applyCal();
 $("dbgBtn").addEventListener("click", function(){ debugOn = !debugOn; dbg.style.display = debugOn ? "block" : "none"; });
 </script>
 </body>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hand HUD visual test</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden}
+body{background:#0B0908;color:#F4EDE4;font-family:Montserrat,sans-serif}
+body.light{background:linear-gradient(135deg,#e9e4dc,#b9c7d4 50%,#f6f1e6)}
+#hud{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:10}
+#card{position:fixed;left:0;top:0;width:200px;height:130px;margin:-65px 0 0 -100px;border-radius:18px;border:1px solid rgba(255,255,255,.28);background:rgba(22,17,16,.8);display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+#card.hot{border-color:#FFB35C}
+#stat{position:fixed;left:12px;top:12px;z-index:20;font-size:11px;line-height:1.6;letter-spacing:.06em;background:rgba(11,9,8,.8);border:1px solid rgba(244,237,228,.16);border-radius:10px;padding:8px 12px}
+button{position:fixed;right:12px;top:12px;z-index:20;font:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#F4EDE4;background:rgba(22,17,16,.8);border:1px solid rgba(244,237,228,.16);border-radius:100px;padding:8px 14px;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="card">Card</div>
+<canvas id="hud"></canvas>
+<div id="stat">starting</div>
+<button id="bg">Toggle background</button>
+<script type="module">
+import { createHandHUD } from "./hud.js";
+
+const canvas = document.getElementById("hud"), card = document.getElementById("card"), stat = document.getElementById("stat");
+const hud = createHandHUD(canvas);
+addEventListener("resize", hud.resize);
+document.getElementById("bg").onclick = () => document.body.classList.toggle("light");
+if (location.search.includes("light")) document.body.classList.add("light");
+
+// Synthetic right hand, wrist at origin, y up is negative. REST lerps to PINCH on thumb and index.
+const REST = [0,0, -28,-18, -52,-42, -68,-68, -80,-92, -26,-92, -32,-130, -35,-155, -37,-178,
+  -4,-98, -4,-140, -4,-168, -4,-192, 16,-92, 20,-130, 22,-155, 23,-176, 34,-80, 42,-108, 46,-126, 49,-143];
+const PINCH = REST.slice();
+[[2,-50,-46],[3,-58,-76],[4,-50,-105],[6,-34,-128],[7,-48,-132],[8,-53,-111]].forEach(([i,x,y]) => { PINCH[i*2] = x; PINCH[i*2+1] = y; });
+
+const mkHand = (id) => ({ id, landmarks: Array.from({ length: 21 }, () => ({ x: 0, y: 0 })), tip: { x: 0, y: 0 }, pinchPoint: { x: 0, y: 0 }, pinching: false, pinchStrength: 0, hover: false, grabbing: false });
+const A = mkHand("a"), B = mkHand("b");
+const two = { active: false, center: { x: 0, y: 0 }, scale: 1 }, opts = { two };
+
+const clamp = (v) => Math.max(0, Math.min(1, v));
+const ramp = (t, a, b) => { const k = clamp((t - a) / (b - a)); return k * k * (3 - 2 * k); };
+
+// Place the hand so its index tip lands on (tx, ty); p is pinch closeness, mirror is -1 for the other hand.
+function pose(h, tx, ty, p, mirror, s) {
+  const L = h.landmarks, ix = (REST[16] + (PINCH[16] - REST[16]) * p) * s * mirror, iy = (REST[17] + (PINCH[17] - REST[17]) * p) * s;
+  for (let j = 0; j < 21; j++) {
+    L[j].x = tx - ix + (REST[j*2] + (PINCH[j*2] - REST[j*2]) * p) * s * mirror;
+    L[j].y = ty - iy + (REST[j*2+1] + (PINCH[j*2+1] - REST[j*2+1]) * p) * s;
+  }
+  h.tip.x = L[8].x; h.tip.y = L[8].y;
+  h.pinchPoint.x = (L[4].x + L[8].x) / 2; h.pinchPoint.y = (L[4].y + L[8].y) / 2;
+  h.pinchStrength = p; h.pinching = p > 0.85;
+}
+
+const LOOP = 17;
+const prev = { a: false, b: false, grab: false };
+const hands = [];
+let sum = 0, cnt = 0, lastAvg = 0;
+
+// Deterministic in tMs so it can be driven by hand: __hudDemo.frame(ms)
+function frame(tMs) {
+  const t = (tMs / 1000) % LOOP, W = innerWidth, H = innerHeight, s = Math.max(0.6, Math.min(1.2, Math.min(W, H) / 560));
+  const cx = W / 2, cy = H * 0.3, sep0 = 150;
+  const dx = cx + Math.sin(t * 1.6) * W * 0.2, dy = H * 0.62 + Math.cos(t * 2.1) * H * 0.07;
+  const u = clamp((t - 8.4) / 2.2), drag = t > 8.4 && t < 10.6;
+  const ox = Math.sin(u * 6.283) * W * 0.18, oy = (1 - Math.cos(u * 6.283)) * H * 0.1;
+  const sep = sep0 * (1 + 0.45 * Math.sin(clamp((t - 12) / 2.5) * 6.283));
+  const toCard = ramp(t, 6, 7), split = ramp(t, 11, 12);
+
+  const pa = t < 6 ? clamp((0.5 - 0.5 * Math.cos((t - 3) * 6.283 / 1.5)) * 1.15) * (t > 3 ? 1 : 0)
+    : t < 11 ? ramp(t, 8, 8.4) - ramp(t, 10.6, 11) : ramp(t, 11.6, 12) - ramp(t, 14.5, 14.9);
+  const ax = dx + (cx + ox - split * sep / 2 - dx) * toCard, ay = dy + (cy + oy - dy) * toCard;
+  const both = t >= 12 && t < 14.5;
+
+  hands.length = 0;
+  if (t < 15) {
+    pose(A, ax, ay, pa, 1, s);
+    A.grabbing = drag || both;
+    hands.push(A);
+  }
+  if (t >= 11 && t < 15) {
+    const k = ramp(t, 11, 12);
+    pose(B, W + 120 + (cx + sep / 2 - W - 120) * k, H * 0.6 + (cy - H * 0.6) * k, ramp(t, 11.6, 12) - ramp(t, 14.5, 14.9), -1, s);
+    B.grabbing = both;
+    hands.push(B);
+  }
+
+  const sc = both ? sep / sep0 : 1, kx = cx + (drag ? ox : 0), ky = cy + (drag ? oy : 0);
+  card.style.transform = `translate(${kx}px,${ky}px) scale(${sc})`;
+  let hot = false;
+  for (const h of hands) { h.hover = Math.abs(h.tip.x - kx) < 100 * sc && Math.abs(h.tip.y - ky) < 65 * sc; hot = hot || h.hover; }
+  card.classList.toggle("hot", hot);
+
+  two.active = both; two.scale = sc;
+  two.center.x = (A.pinchPoint.x + B.pinchPoint.x) / 2; two.center.y = (A.pinchPoint.y + B.pinchPoint.y) / 2;
+
+  const aP = hands.includes(A) && A.pinching, grab = hands.includes(A) && A.grabbing;
+  if (aP && !prev.a && !A.hover) hud.pulse(A.pinchPoint.x, A.pinchPoint.y, "tap");
+  if (grab && !prev.grab) hud.pulse(A.pinchPoint.x, A.pinchPoint.y, "grab");
+  if (!grab && prev.grab) hud.pulse(A.pinchPoint.x, A.pinchPoint.y, "release");
+  prev.a = aP; prev.grab = grab;
+
+  const t0 = performance.now();
+  hud.draw(hands, tMs, opts);
+  sum += performance.now() - t0;
+  if (++cnt === 300) { lastAvg = sum / cnt; sum = 0; cnt = 0; }
+  if (cnt % 30 === 0) stat.textContent = `t ${t.toFixed(1)}s | hands ${hands.length} | avg draw ${lastAvg ? lastAvg.toFixed(3) + " ms" : "measuring"}`;
+}
+
+window.__hudDemo = { hud, frame };
+if (!location.search.includes("manual")) requestAnimationFrame(function loop(t) { frame(t); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
