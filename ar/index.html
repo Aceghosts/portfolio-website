@@ -22,6 +22,7 @@ button{font-family:inherit;cursor:pointer}
 .veil{position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at center,rgba(11,9,8,.15),rgba(11,9,8,.85) 80%)}
 #hud{position:fixed;inset:0;width:100%;height:100%;z-index:170;pointer-events:none}
 .card.hot{border-color:var(--cream);box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 60px rgba(255,179,92,.7)}
+.card.sel{outline:4px solid var(--ember);outline-offset:3px;box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 70px rgba(255,90,31,.85)}
 body.xr{background:transparent}
 body.xr .veil,body.xr #space,body.xr #cam,body.xr .cursor{display:none}
 body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.14),rgba(11,9,8,.97) 70%)}
@@ -114,14 +115,14 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
   </div>
 </div>
 
-<div class="hint" id="hint">Point · quick pinch to open · pinch and drag to spin</div>
+<div class="hint" id="hint">Hold a finger on a video · pinch to open · pinch and drag to spin</div>
 
 <div id="lb">
   <div class="lb-in" id="lbIn">
     <div class="lb-title" id="lbTitle"></div>
     <div id="lbBody"></div>
   </div>
-  <div class="lb-nav">Quick pinch to go back · pinch and drag sideways for next or previous</div>
+  <div class="lb-nav">Pinch to close · pinch and drag sideways for next or previous</div>
 </div>
 <button class="back" id="backBtn">← Back to the space</button>
 
@@ -130,7 +131,7 @@ body.no-cam .veil{background:radial-gradient(ellipse at 50% 40%,rgba(255,90,31,.
     <h2>How to use AR</h2>
     <p>Hold your phone so the back camera sees your hand. Videos float in a 3D ring around you and stay in place as you turn.</p>
     <div id="guideRows">
-    <div class="g-row"><div class="g-ico">☝</div><div><b>Point with your index finger</b><span>A reticle follows your fingertip. The video you point at lights up.</span></div></div><div class="g-row"><div class="g-ico">👌</div><div><b>Quick pinch on a video</b><span>Opens it. Quick pinch again to go back.</span></div></div><div class="g-row"><div class="g-ico">↔</div><div><b>Pinch, hold and drag</b><span>Grab the ring and spin it. Let go while moving to throw it.</span></div></div><div class="g-row"><div class="g-ico">⤢</div><div><b>Two hands, pinch and pull apart</b><span>Stretch the space bigger, or push together to shrink it.</span></div></div>
+    <div class="g-row"><div class="g-ico">☝</div><div><b>Hold your fingertip on a video</b><span>After a moment it gets an orange outline. That video is now selected.</span></div></div><div class="g-row"><div class="g-ico">👌</div><div><b>Pinch</b><span>Opens the selected video. Pinch again to close it. The pinch can be anywhere.</span></div></div><div class="g-row"><div class="g-ico">↔</div><div><b>Pinch, hold and drag</b><span>Grab the ring and spin it. Let go while moving to throw it.</span></div></div><div class="g-row"><div class="g-ico">⤢</div><div><b>Two hands, pinch and pull apart</b><span>Stretch the space bigger, or push together to shrink it.</span></div></div>
     </div>
     <button class="chip" id="guideClose">Got it</button>
     <button id="touchOnly" style="display:none;margin-top:10px;width:100%;background:none;border:none;color:var(--muted);font-size:11px;letter-spacing:.08em;text-decoration:underline">Start without hand tracking</button>
@@ -425,7 +426,14 @@ var tracker = null, engine = null, hud = null, surface = null;
 var handsPx = [], hudExtra = { two: { active: false, center: { x: 0, y: 0 }, scale: 1 } };
 var hot = -1, grab = null, twoBase = null, pinchGap = 0, fingerNote = "";
 var lastHot = -1, hotAt = 0, lastPinch = "";
-var TAP_DEAD = .08, TAP_MAX_MS = 1500;   /* a pinch that stays within 8% of the screen width and under 1.5 s is a tap; past the dead zone it becomes a drag */
+/* two-step select: hold the fingertip on a card for DWELL_MS and it locks on (orange outline); a pinch anywhere then opens it */
+var sel = -1, dwellCard = -1, dwellAt = 0, DWELL_MS = 400;
+function setSel(i){
+  if (i === sel) return;
+  sel = i; surface.select(i);
+  if (i >= 0 && navigator.vibrate) { try { navigator.vibrate(15); } catch (e) {} }
+}
+var TAP_DEAD = .08, TAP_MAX_MS = 1500;   /* a pinch that stays within 8% of the screen's longer side and under 1.5 s is a tap; past the dead zone it becomes a drag */
 var modsLoad = null;
 function loadMods(){ return modsLoad || (modsLoad = Promise.all([import("./hand-engine.js"), import("./hud.js")])); }
 
@@ -453,7 +461,8 @@ var domSurface = {
   release: function(vx){ focus = Math.round(-(rot + vx * .35 * .25) / STEP); target = -focus * STEP; },   /* throw: a quarter second of momentum, then snap to a card */
   scaleStart: function(){ return camTarget; },
   scale: function(base, k){ zoomTo(base + (k - 1) * T.zoom); },
-  hot: function(i){ cards.forEach(function(c, j){ c.classList.toggle("hot", j === i); }); }
+  hot: function(i){ cards.forEach(function(c, j){ c.classList.toggle("hot", j === i); }); },
+  select: function(i){ cards.forEach(function(c, j){ c.classList.toggle("sel", j === i); }); }
 };
 
 function wireEngine(){
@@ -472,7 +481,7 @@ function wireEngine(){
     var p = surface.toScreen(e.point.x, e.point.y), dx = p.x - grab.last.x, dy = p.y - grab.last.y;
     grab.last = p;
     if (!grab.moved) {
-      if (Math.hypot(p.x - grab.x0, p.y - grab.y0) < TAP_DEAD * innerWidth) return;
+      if (Math.hypot(p.x - grab.x0, p.y - grab.y0) < TAP_DEAD * Math.max(innerWidth, innerHeight)) return;
       grab.moved = true;
     }
     if (view === "space") surface.rotate(dx, dy);
@@ -482,15 +491,17 @@ function wireEngine(){
     if (!grab || grab.id !== e.hand.id) return;
     var g = grab, p = g.last; grab = null;
     var held = performance.now() - g.t0, isTap = !g.moved && held < TAP_MAX_MS;
-    lastPinch = "last pinch " + held.toFixed(0) + "ms, moved " + (Math.hypot(p.x - g.x0, p.y - g.y0) / innerWidth).toFixed(2) + ", " + (isTap ? "tap" : "drag") + ", card " + g.card;
+    lastPinch = "last pinch " + held.toFixed(0) + "ms, moved " + (Math.hypot(p.x - g.x0, p.y - g.y0) / innerWidth).toFixed(2) + ", " + (isTap ? "tap" : "drag") + ", selected " + sel;
     if (isTap) {
       hud.pulse(p.x, p.y, "tap");
       if (performance.now() - lastOpen < 500) return;
       if (view === "video") { closeVideo(); flash("Back to the space"); }
-      else if (g.card >= 0) {
-        if (PROJECTS[g.card].v || PROJECTS[g.card].vlist) openProject(g.card);
+      else {
+        var c = sel >= 0 ? sel : g.card;
+        if (c < 0) flash("Hold your finger on a video until it turns orange");
+        else if (PROJECTS[c].v || PROJECTS[c].vlist) openProject(c);
         else flash("No video on this one");
-      } else flash("Pinch on a video to open it");
+      }
     } else {
       hud.pulse(p.x, p.y, "release");
       if (view === "space") surface.release(surface.toScreen(e.vel.x, 0).x - surface.toScreen(0, 0).x);
@@ -512,6 +523,12 @@ function applyHands(state){
       pinchPoint: surface.toScreen(h.pinchPoint.x, h.pinchPoint.y), pinching: h.pinching, pinchStrength: h.pinchStrength,
       hover: over >= 0, grabbing: !!grab && grab.id === h.id };
   });
+  if (!grab) {
+    var nowMs = performance.now();
+    if (newHot < 0) dwellCard = -1;
+    else if (newHot !== dwellCard) { dwellCard = newHot; dwellAt = nowMs; }
+    else if (nowMs - dwellAt > DWELL_MS) setSel(newHot);
+  }
   if (grab && grab.card >= 0) newHot = grab.card;
   if (newHot !== hot) { hot = newHot; surface.hot(hot); }
   var two = state.two || {};
@@ -527,7 +544,7 @@ function liveStatus(now){
   if (!tracker) { statusEl.textContent = "Loading hand tracking"; return; }
   var h = handsPx[0];
   statusEl.textContent = !h ? "Show your hand" :
-    (h.pinching ? "Pinch" : "Hand " + Math.round(h.pinchStrength * 100) + "%") + (hot >= 0 ? " \u00b7 " + PROJECTS[hot].t : " \u00b7 no video");
+    (h.pinching ? "Pinch" : "Hand " + Math.round(h.pinchStrength * 100) + "%") + (sel >= 0 ? " \u00b7 selected: " + PROJECTS[sel].t : hot >= 0 ? " \u00b7 hold on " + PROJECTS[hot].t : " \u00b7 point at a video");
 }
 function fingersFrame(source, now){
   var sw = source.videoWidth || source.width, sh = source.videoHeight || source.height;
@@ -619,7 +636,7 @@ async function startXR(){
   THREE = await threeLoad;
   document.body.classList.add("xr");
   statusEl.textContent = "Point at a floor or table, then tap to place";
-  hintEl.textContent = "Tap to place \u00b7 then point, pinch to open, pinch and drag to spin";
+  hintEl.textContent = "Tap to place \u00b7 hold a finger on a video \u00b7 pinch to open";
 
   var renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setPixelRatio(devicePixelRatio);
@@ -639,6 +656,12 @@ async function startXR(){
     var a = i * STEP * Math.PI / 180;
     m.position.set(Math.sin(a) * RR, CH / 2 + .03, Math.cos(a) * RR);
     m.rotation.y = a;                /* faces outward, like the CSS ring */
+    var fr = new THREE.Shape(), hw = CW / 2 + .022, hh = CH / 2 + .022, hole = new THREE.Path();
+    fr.moveTo(-hw, -hh); fr.lineTo(hw, -hh); fr.lineTo(hw, hh); fr.lineTo(-hw, hh); fr.closePath();
+    hole.moveTo(-CW / 2, -CH / 2); hole.lineTo(-CW / 2, CH / 2); hole.lineTo(CW / 2, CH / 2); hole.lineTo(CW / 2, -CH / 2); hole.closePath();
+    fr.holes.push(hole);
+    var outline = new THREE.Mesh(new THREE.ShapeGeometry(fr), new THREE.MeshBasicMaterial({ color: 0xFF5A1F, side: THREE.DoubleSide }));
+    outline.visible = false; outline.userData.i = i; m.add(outline); m.userData.outline = outline;
     m.userData.i = i; group.add(m); return m;
   });
 
@@ -665,7 +688,8 @@ async function startXR(){
     release: function(vx){ xrTarget += vx * .008 * .25; },
     scaleStart: function(){ return group.scale.x; },
     scale: function(base, k){ group.scale.setScalar(Math.max(.3, Math.min(4, base * k))); },
-    hot: function(i){ xrHot = i; }
+    hot: function(i){ xrHot = i; },
+    select: function(i){ meshes.forEach(function(m, j){ m.userData.outline.visible = j === i; }); }
   };
   /* hand tracking loads in the background; placing and touch work while it does */
   if (xrHands) Promise.all([loadFingers(), import("./xr-camera.js")]).then(async function(m){
@@ -818,7 +842,7 @@ window.addEventListener("keydown", function(e){
 });
 render();
 /* test hook: lets the page's own gesture code be driven with landmark data */
-window.__ar = { feed: function(res, t){ applyHands(engine.update(res, t)); hud.draw(handsPx, t, hudExtra); }, hands: function(){ return handsPx; }, hot: function(){ return hot; }, state: function(){ return { view: view, focus: focus, rot: rot, target: target, camZ: camZ }; } };
+window.__ar = { feed: function(res, t){ applyHands(engine.update(res, t)); hud.draw(handsPx, t, hudExtra); }, hands: function(){ return handsPx; }, hot: function(){ return hot; }, sel: function(){ return sel; }, state: function(){ return { view: view, focus: focus, rot: rot, target: target, camZ: camZ }; } };
 Array.prototype.forEach.call(document.querySelectorAll("[data-cal]"), function(b){
   b.addEventListener("click", function(){
     var k = b.dataset.cal;
