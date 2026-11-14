@@ -518,6 +518,17 @@ function applyHands(state){
   hudExtra.two.active = !!two.active;
   if (two.active) { hudExtra.two.center = surface.toScreen(two.center.x, two.center.y); hudExtra.two.scale = two.scale; }
 }
+/* the top line always says what the hand tracker currently sees, so a problem is visible without opening Debug */
+var statusAt = 0;
+function liveStatus(now){
+  if (now - statusAt < 250) return;
+  statusAt = now;
+  if (fingerNote) { statusEl.textContent = fingerNote; return; }
+  if (!tracker) { statusEl.textContent = "Loading hand tracking"; return; }
+  var h = handsPx[0];
+  statusEl.textContent = !h ? "Show your hand" :
+    (h.pinching ? "Pinch" : "Hand " + Math.round(h.pinchStrength * 100) + "%") + (hot >= 0 ? " \u00b7 " + PROJECTS[hot].t : " \u00b7 no video");
+}
 function fingersFrame(source, now){
   var sw = source.videoWidth || source.width, sh = source.videoHeight || source.height;
   if (sw && sh) engine.opts.aspect = sw / sh;
@@ -554,6 +565,7 @@ function loop(now){
     }
     if (hud) hud.draw(handsPx, now, hudExtra);
     updateDebug(now);
+    if (tracker) liveStatus(now);
   } catch (err) {
     statusEl.textContent = "Error: " + (err && err.message ? err.message.slice(0, 80) : String(err));
     console.error(err);
@@ -634,12 +646,18 @@ async function startXR(){
   var hitSource = await session.requestHitTestSource({ space: viewerSpace });
   var placed = false, xrTarget = 0, camPos = null, xrHot = -1, feed = null, skip = false;
   var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  /* the picking ray uses a camera filled directly from the XR view every frame, not three's internal XR camera,
+     so it cannot be a frame stale or half updated */
+  var pickCam = new THREE.PerspectiveCamera(), pickReady = false, stage = "";
+  pickCam.matrixAutoUpdate = false;
   var xrSurface = {
     toScreen: function(u, v){ var n = feed.imageToNDC(u, v); return { x: (n.x + 1) / 2 * innerWidth, y: (1 - n.y) / 2 * innerHeight }; },
     pick: function(x, y){
       if (!placed) return -1;
       ndc.set(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2);
-      var c = renderer.xr.getCamera(); ray.setFromCamera(ndc, (c.cameras && c.cameras[0]) || c);
+      if (!pickReady) return -1;
+      group.updateMatrixWorld(true);
+      ray.setFromCamera(ndc, pickCam);
       var hit = ray.intersectObjects(meshes)[0];
       return hit ? hit.object.userData.i : -1;
     },
@@ -659,20 +677,35 @@ async function startXR(){
   }).catch(function(e){ fingerNote = "hands: " + (e && e.message ? e.message.slice(0, 80) : e); });
 
   renderer.setAnimationLoop(function(t, frame){
-    /* fingers: every frame, or every other frame when detection is slow on this phone */
+    /* each stage reports its own failure, and one failing stage never hides the others */
     try {
+      stage = "view";
+      if (frame) {
+        var pv = frame.getViewerPose(renderer.xr.getReferenceSpace()), v0 = pv && pv.views[0];
+        if (v0) {
+          pickCam.matrixWorld.fromArray(v0.transform.matrix);
+          pickCam.projectionMatrix.fromArray(v0.projectionMatrix);
+          pickCam.projectionMatrixInverse.copy(pickCam.projectionMatrix).invert();
+          pickReady = true;
+        }
+      }
+      /* fingers: every frame, or every other frame when detection is slow on this phone */
+      stage = "camera";
       if (frame && tracker && feed && feed.supported !== false && !(skip = !skip && detectShown > 45)) {
         var cap = feed.capture(frame, renderer.xr.getReferenceSpace());
-        if (cap) fingersFrame(cap.canvas, t);
+        stage = "hands";
+        if (cap) { fingersFrame(cap.canvas, t); fingerNote = ""; }
         else if (feed.error) fingerNote = "camera: " + feed.error;
       } else if (feed) feed.syncState();   /* three 0.160 needs its texture cache cleared on every camera-access frame */
-      for (var mi = 0; mi < meshes.length; mi++) {
-        var ms = meshes[mi].scale.x + ((mi === xrHot ? 1.12 : 1) - meshes[mi].scale.x) * .3;
-        meshes[mi].scale.setScalar(ms);
-      }
-      if (hud) hud.draw(handsPx, t, hudExtra);
-      updateDebug(t);
-    } catch (err) { fingerNote = "err: " + (err && err.message ? err.message.slice(0, 80) : err); }
+    } catch (err) { fingerNote = stage + ": " + (err && err.message ? err.message.slice(0, 70) : err); }
+    for (var mi = 0; mi < meshes.length; mi++) {
+      var on = mi === xrHot;
+      meshes[mi].scale.setScalar(meshes[mi].scale.x + ((on ? 1.18 : 1) - meshes[mi].scale.x) * .3);
+      meshes[mi].material.color.setScalar(xrHot < 0 || on ? 1 : .55);   /* the card you point at stays bright, the rest dim */
+    }
+    try { if (hud) hud.draw(handsPx, t, hudExtra); } catch (err) { fingerNote = "hud: " + (err && err.message ? err.message.slice(0, 70) : err); }
+    try { updateDebug(t); } catch (err) {}
+    if (placed && xrHands) liveStatus(t);
     if (frame && !placed) {
       var ref = renderer.xr.getReferenceSpace();
       var hits = frame.getHitTestResults(hitSource);
