@@ -383,7 +383,7 @@ function updateDebug(now){
   if (!debugOn) return;
   dbgText.textContent = "fps " + fpsShown + " · detect " + detectShown.toFixed(0) + "ms" +
     "\nhands " + handsPx.length + " · pinch " + handsPx.map(function(h){ return h.pinchStrength.toFixed(2) + (h.pinching ? "*" : ""); }).join(" ") +
-    (fingerNote ? "\n" + fingerNote : "") +
+    (lastPinch ? "\n" + lastPinch : "") + (fingerNote ? "\n" + fingerNote : "") +
     "\nyaw " + yawView.toFixed(0) + " · pitch " + pitchView.toFixed(0) +
     "\nview " + view + " · focus " + focus + " · zoom " + camZ.toFixed(0);
 }
@@ -424,6 +424,8 @@ async function startCamera(){
 var tracker = null, engine = null, hud = null, surface = null;
 var handsPx = [], hudExtra = { two: { active: false, center: { x: 0, y: 0 }, scale: 1 } };
 var hot = -1, grab = null, twoBase = null, pinchGap = 0, fingerNote = "";
+var lastHot = -1, hotAt = 0, lastPinch = "";
+var TAP_DEAD = .08, TAP_MAX_MS = 1500;   /* a pinch that stays within 8% of the screen width and under 1.5 s is a tap; past the dead zone it becomes a drag */
 var modsLoad = null;
 function loadMods(){ return modsLoad || (modsLoad = Promise.all([import("./hand-engine.js"), import("./hud.js")])); }
 
@@ -461,27 +463,34 @@ function wireEngine(){
     /* the card is chosen at the moment the pinch closes: what is between the fingers, else what the fingertip points at */
     var card = view === "space" ? surface.pick(p.x, p.y) : -1;
     if (card < 0 && view === "space") card = surface.pick(tip.x, tip.y);
-    grab = { id: e.hand.id, card: card, last: p, x0: p.x, stepped: false };
+    if (card < 0 && view === "space" && performance.now() - hotAt < 400) card = lastHot;   /* the finger slid off the card while closing */
+    grab = { id: e.hand.id, card: card, last: p, x0: p.x, y0: p.y, t0: performance.now(), moved: false, stepped: false };
     hud.pulse(p.x, p.y, "grab");
   });
   engine.on("pinchmove", function(e){
     if (!grab || grab.id !== e.hand.id) return;
     var p = surface.toScreen(e.point.x, e.point.y), dx = p.x - grab.last.x, dy = p.y - grab.last.y;
     grab.last = p;
+    if (!grab.moved) {
+      if (Math.hypot(p.x - grab.x0, p.y - grab.y0) < TAP_DEAD * innerWidth) return;
+      grab.moved = true;
+    }
     if (view === "space") surface.rotate(dx, dy);
     else if (!grab.stepped && Math.abs(p.x - grab.x0) > T.swipe * innerWidth) { grab.stepped = true; stepVideo(p.x < grab.x0 ? 1 : -1); }
   });
   engine.on("pinchend", function(e){
     if (!grab || grab.id !== e.hand.id) return;
     var g = grab, p = g.last; grab = null;
-    if (e.tap) {
+    var held = performance.now() - g.t0, isTap = !g.moved && held < TAP_MAX_MS;
+    lastPinch = "last pinch " + held.toFixed(0) + "ms, moved " + (Math.hypot(p.x - g.x0, p.y - g.y0) / innerWidth).toFixed(2) + ", " + (isTap ? "tap" : "drag") + ", card " + g.card;
+    if (isTap) {
       hud.pulse(p.x, p.y, "tap");
       if (performance.now() - lastOpen < 500) return;
       if (view === "video") { closeVideo(); flash("Back to the space"); }
       else if (g.card >= 0) {
         if (PROJECTS[g.card].v || PROJECTS[g.card].vlist) openProject(g.card);
         else flash("No video on this one");
-      }
+      } else flash("Pinch on a video to open it");
     } else {
       hud.pulse(p.x, p.y, "release");
       if (view === "space") surface.release(surface.toScreen(e.vel.x, 0).x - surface.toScreen(0, 0).x);
@@ -498,7 +507,7 @@ function applyHands(state){
   handsPx = state.hands.map(function(h){
     var tip = surface.toScreen(h.tip.x, h.tip.y);
     var over = view === "space" ? surface.pick(tip.x, tip.y) : -1;
-    if (over >= 0 && newHot < 0) newHot = over;
+    if (over >= 0 && newHot < 0) { newHot = over; lastHot = over; hotAt = performance.now(); }
     return { id: h.id, landmarks: h.landmarks.map(function(l){ return surface.toScreen(l.x, l.y); }), tip: tip,
       pinchPoint: surface.toScreen(h.pinchPoint.x, h.pinchPoint.y), pinching: h.pinching, pinchStrength: h.pinchStrength,
       hover: over >= 0, grabbing: !!grab && grab.id === h.id };
